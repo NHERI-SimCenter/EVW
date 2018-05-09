@@ -228,7 +228,9 @@ GroundMotion::getAccel(double time)
 {
   if (time < 0.0)
     return 0.0;
-  
+
+ //opserr << time << " " << theAccelSeries->getFactor(time) << "\n";
+
   if (theAccelSeries != 0)
     return fact*(theAccelSeries->getFactor(time));
   else

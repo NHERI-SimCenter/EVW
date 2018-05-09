@@ -31,20 +31,30 @@ ResponseWidget::ResponseWidget(MainWindow *mainWindow,
     theItemEdit->setValidator(new QIntValidator);
     connect(theItemEdit, SIGNAL(editingFinished()), this, SLOT(itemEditChanged()));
 
-    thePlot=new QCustomPlot();
-    thePlot->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
+    thePlot1=new QCustomPlot();
+    thePlot1->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
 
     QRect rec = QApplication::desktop()->screenGeometry();
 
     int height = 0.2*rec.height();
     int width = 0.5*rec.width();
 
-    thePlot->setMinimumWidth(width);
-    thePlot->setMinimumHeight(height);
-    mainLayout->addWidget(thePlot);
+    thePlot1->setMinimumWidth(width);
+    thePlot1->setMinimumHeight(height);
+    mainLayout->addWidget(thePlot1);
 
-    thePlot->xAxis->setLabel(xLabel);
-    thePlot->yAxis->setLabel(yLabel);
+    thePlot1->xAxis->setLabel(xLabel);
+    thePlot1->yAxis->setLabel(yLabel);
+
+    thePlot2=new QCustomPlot();
+    thePlot2->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
+
+    thePlot2->setMinimumWidth(width);
+    thePlot2->setMinimumHeight(height);
+    mainLayout->addWidget(thePlot2);
+
+    thePlot2->xAxis->setLabel(xLabel);
+    thePlot2->yAxis->setLabel(yLabel);
 
     this->setLayout(mainLayout);
 }
@@ -82,38 +92,54 @@ ResponseWidget::itemEditChanged() {
 }
 
 void
-ResponseWidget::setData(QVector<double> &data, QVector<double> &time, int numSteps, double dt) {
+ResponseWidget::setData(QVector<double> &data1, QVector<double> &data2, QVector<double> &time, int numSteps, double dt) {
 
-    thePlot->clearGraphs();
-    graph = thePlot->addGraph();
-
-    thePlot->graph(0)->setData(time, data);
 
     double minValue = 0;
     double maxValue = 0;
     for (int i=0; i<numSteps; i++) {
-        double value = data.at(i);
+        double value = data1.at(i);
         if (value < minValue)
             minValue = value;
         if (value > maxValue)
             maxValue = value;
     }
 
-    thePlot->xAxis->setRange(0, numSteps*dt);
-    thePlot->yAxis->setRange(minValue, maxValue);
-    //thePlot->axisRect()->setAutoMargins(QCP::msNone);
-    thePlot->axisRect()->setMargins(QMargins(0,0,0,0));
-    thePlot->replot();
+    for (int i=0; i<numSteps; i++) {
+        double value = data2.at(i);
+        if (value < minValue)
+            minValue = value;
+        if (value > maxValue)
+            maxValue = value;
+    }
 
+    thePlot1->clearGraphs();
+    graph = thePlot1->addGraph();
+
+    thePlot1->graph(0)->setData(time, data1);
+    thePlot1->xAxis->setRange(0, numSteps*dt);
+    thePlot1->yAxis->setRange(minValue, maxValue);
+    thePlot1->axisRect()->setMargins(QMargins(0,0,0,0));
+    thePlot1->replot();
+
+    thePlot2->clearGraphs();
+    graph = thePlot2->addGraph();
+
+    thePlot2->graph(0)->setData(time, data2);
+    thePlot2->xAxis->setRange(0, numSteps*dt);
+    thePlot2->yAxis->setRange(minValue, maxValue);
+    //thePlot->axisRect()->setAutoMargins(QCP::msNone);
+    thePlot2->axisRect()->setMargins(QMargins(0,0,0,0));
+    thePlot2->replot();
 }
 
 void
 ResponseWidget::setData(QVector<double> &data, QVector<double> &x, int numSteps) {
 
-    thePlot->clearGraphs();
+    thePlot1->clearGraphs();
     //thePlot->clearItems();
-   thePlot->clearPlottables();
-   curve = new QCPCurve(thePlot->xAxis, thePlot->yAxis);
+   thePlot1->clearPlottables();
+   curve = new QCPCurve(thePlot1->xAxis, thePlot1->yAxis);
 
    curve->setData(x,data);
 
@@ -137,10 +163,10 @@ ResponseWidget::setData(QVector<double> &data, QVector<double> &x, int numSteps)
     }
 
    //
-   thePlot->yAxis->setRange(minValue, maxValue);
-   thePlot->xAxis->setRange(xMinValue, xMaxValue);
+   thePlot1->yAxis->setRange(minValue, maxValue);
+   thePlot1->xAxis->setRange(xMinValue, xMaxValue);
 
     //thePlot->axisRect()->setAutoMargins(QCP::msNone);
    // thePlot->axisRect()->setMargins(QMargins(0,0,0,0));
-    thePlot->replot();
+    thePlot1->replot();
 }

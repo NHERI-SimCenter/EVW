@@ -20,7 +20,7 @@ public:
 
     int getItem();
     void setItem(int);
-    void setData(QVector<double> &data, QVector<double> &time, int numSteps, double dt);
+    void setData(QVector<double> &dataE, QVector<double> &dataW, QVector<double> &time, int numSteps, double dt);
     void setData(QVector<double> &data, QVector<double> &x, int numSteps);
 
 signals:
@@ -29,7 +29,9 @@ public slots:
     void itemEditChanged(void);
 
 private:
-    QCustomPlot *thePlot;
+    QCustomPlot *thePlot1;
+    QCustomPlot *thePlot2;
+
     QLineEdit *theItemEdit;
     int theItem; // floor or story #
     int mainWindowItem; // tag used in call back

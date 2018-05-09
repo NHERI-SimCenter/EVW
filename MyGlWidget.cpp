@@ -48,8 +48,8 @@ UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 
 
 
-MyGlWidget::MyGlWidget(QWidget *parent)
-    : QOpenGLWidget(parent), selectMode(0)
+MyGlWidget::MyGlWidget(int loadType, QWidget *parent)
+    : QOpenGLWidget(parent), selectMode(0), loading(loadType)
 {
     setMouseTracking(true);
 
@@ -460,7 +460,7 @@ void MyGlWidget::paintGL() {
     glClear(GL_COLOR_BUFFER_BIT);
 
     if (theModel != 0)
-        theModel->draw(this);
+        theModel->draw(this, loading);
 
     //this->drawBuffers();
 

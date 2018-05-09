@@ -85,7 +85,7 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
-    void draw(MyGlWidget *);
+    void draw(MyGlWidget *, int loading);
     void doAnalysis();
     float getBuildingHeight() {return buildingH;};
     float getMaxDisp(){return maxDisp;};
@@ -119,6 +119,11 @@ private slots:
     void on_inStoryK_editingFinished();
     void on_inStoryFy_editingFinished();
     void on_inStoryB_editingFinished();
+    void on_dragCoefficient_editingFinished();
+    void on_windGustSpeed_editingFinished();
+    void on_expCatagory_indexChanged();
+
+
 
     // for earthquake motion combo box
     void on_inEarthquakeMotionSelectionChanged(const QString &arg1);
@@ -157,8 +162,11 @@ private slots:
     void viewStoryResponse();
 
 private:
+    void doEarthquakeAnalysis(void);
+    void doWindAnalysis(void);
+
     void updatePeriod();
-    void setBasicModel(int numFloors, double buildingW, double buildingH, double storyK, double zeta, double grav);
+    void setBasicModel(int numFloors, double buildingW, double buildingH, double storyK, double zeta, double grav, double width, double depth);
     void setData(int numSteps, double dT, Vector *data);
     void reset(void);
 
@@ -192,8 +200,6 @@ private:
     QPushButton *addMotion;
     QLineEdit *scaleFactorEQ;
 
-
-
     // global properties inputs when nothing slected
     QLineEdit *inFloors;
     QLineEdit *inWeight;
@@ -201,6 +207,7 @@ private:
     QLineEdit *inK;
     QLineEdit *inDamping;
     QCheckBox *pDeltaBox;
+
     QLineEdit *dragCoefficient;
 
     // specific inputs when many selected
@@ -209,6 +216,9 @@ private:
     QLineEdit *inStoryFy;
     QLineEdit *inStoryB;
     QLineEdit *inStoryHeight;
+
+    QLineEdit *windGustSpeed;
+
     QLineEdit *squareHeight;
     QLineEdit *squareWidth;
     QLineEdit *rectangularHeight;
@@ -219,6 +229,7 @@ private:
     QStackedWidget *shapesWidget;
     QComboBox *shapeSelectionBox;
 
+    QComboBox *expCatagory;
     QLineEdit *inScaleFactor;
 
     // buttons for running, stoppping & exiting
@@ -268,6 +279,8 @@ private:
     double buildingH;
     double storyK;
     double dampingRatio;
+    double buildingWidth;
+    double buildingDepth;
 
     double *weights;
     double *k;
@@ -298,9 +311,17 @@ private:
     bool includePDelta;
     bool needAnalysis;
     bool  analysisFailed;
-    double **dispResponses;
-    double **storyForceResponses;
-    double **storyDriftResponses;
+
+    // earthquake response
+    double **dispResponsesEarthquake;
+    double **storyForceResponsesEarthquake;
+    double **storyDriftResponsesEarthquake;
+
+    // wind response
+    double **dispResponsesWind;
+    double **storyForceResponsesWind;
+    double **storyDriftResponsesWind;
+
     double maxDisp;
     int    currentStep;
     bool   stopRun;
@@ -315,9 +336,13 @@ private:
     // for current display
     QVector<double> time;
     QVector<double> excitationValues;
-    QVector<double> nodeResponseValues;
-    QVector<double> storyForceValues;
-    QVector<double> storyDriftValues;
+    QVector<double> nodeResponseValuesEarthquake;
+    QVector<double> storyForceValuesEarthquake;
+    QVector<double> storyDriftValuesEarthquake;
+    QVector<double> nodeResponseValuesWind;
+    QVector<double> storyForceValuesWind;
+    QVector<double> storyDriftValuesWind;
+
     QCPGraph *graph;
     QCPItemTracer *groupTracer;
 

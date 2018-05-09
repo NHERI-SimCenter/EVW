@@ -12,6 +12,7 @@ TARGET = EVW
 TEMPLATE = app
 
 include(OPS_includes.pro)
+include(Wind_includes.pro)
 include(../widgets/Common/Common.pri)
 
 VERSION=1.1.1

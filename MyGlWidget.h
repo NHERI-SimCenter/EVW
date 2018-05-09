@@ -64,7 +64,7 @@ class MyGlWidget : public QOpenGLWidget, protected QOpenGLFunctions {
     Q_OBJECT // must include this if you use Qt signals/slots
 
 public:
-  MyGlWidget(QWidget *parent = NULL);
+  MyGlWidget(int loading, QWidget *parent = NULL);
   ~MyGlWidget();
   void setModel(MainWindow *);
   
@@ -130,6 +130,8 @@ public:
     vertexStruct *thePointVertices;
     vertexStruct *theLineVertices;
     QMatrix4x4   orthoProjectionMatrix;
+
+    int loading;
 };
 
 

@@ -180,7 +180,10 @@ PathSeries::getFactor(double pseudoTime)
   int incr2 = incr1+1;
   int size = thePath->Size();
 
-  if (incr2 >= size) {
+  //opserr << "pathSeries; size" << size << " " << incr2 << "\n";
+
+  if (incr2 > size-1) {
+ //     opserr << "pathSeries; size" << size << " " << incr2 << " A\n";
     if (useLast == false)
       return 0.0;
     else
@@ -188,6 +191,7 @@ PathSeries::getFactor(double pseudoTime)
   } else {
     double value1 = (*thePath)[incr1];
     double value2 = (*thePath)[incr2];
+  //  opserr << "pathSeries; size" << size << " " << incr2 << " B\n";
     return cFactor*(value1 + (value2-value1)*(incr - incr1));
   }
 }

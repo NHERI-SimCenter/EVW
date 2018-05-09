@@ -55,6 +55,7 @@ UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 #include <qcustomplot.h>
 #include <MyGlWidget.h>
 
+#include "WindSim.h"
 
 //#include <../widgets/InputSheetBM/SimpleSpreadsheetWidget.h>
 #include <SimpleSpreadsheetWidget.h>
@@ -111,6 +112,8 @@ UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 StandardStream sserr;
 OPS_Stream *opserrPtr = &sserr;
 Domain theDomain;
+
+using namespace Wind;
 
 //
 // procedure to create a QLabel QLineInput pair, returns pointer to QLineEdit created
@@ -202,7 +205,9 @@ MainWindow::MainWindow(QWidget *parent) :
     weights(0), k(0), fy(0), b(0), dampRatios(0), floorHeights(0), storyHeights(0),
     dampingRatio(0.02), g(386.4), dt(0), gMotion(0),
     includePDelta(true), needAnalysis(true), analysisFailed(false), motionData(0),
-    dispResponses(0), storyForceResponses(0), storyDriftResponses(0), maxDisp(1),
+    dispResponsesEarthquake(0), storyForceResponsesEarthquake(0), storyDriftResponsesEarthquake(0), 
+    dispResponsesWind(0), storyForceResponsesWind(0), storyDriftResponsesWind(0), 
+    maxDisp(1),
     movingSlider(false), fMinSelected(-1),fMaxSelected(-1), sMinSelected(-1),sMaxSelected(-1),
     time(1561),excitationValues(1561), graph(0), groupTracer(0),floorSelected(-1),storySelected(-1)
 {
@@ -265,7 +270,8 @@ MainWindow::MainWindow(QWidget *parent) :
     }
 
     // create a basic model with defaults
-    this->setBasicModel(5, 5*100, 5*144, 31.54, .05, 386.4);
+    this->setBasicModel(5, 5*100, 5*144, 31.54, .05, 386.4, 5*144, 5*144);
+    this->on_inEarthquakeMotionSelectionChanged("ElCentro");
 
     // access a web page which will increment the usage count for this tool
     manager = new QNetworkAccessManager(this);
@@ -299,8 +305,12 @@ MainWindow::~MainWindow()
         delete [] dampRatios;
 }
 
-void MainWindow::draw(MyGlWidget *theGL)
+void MainWindow::draw(MyGlWidget *theGL, int loadingType)
 {
+    double **theDispResponse = dispResponsesWind;
+    if (loadingType == 0)
+        theDispResponse = dispResponsesEarthquake;
+
     if (needAnalysis == true) {
         doAnalysis();
     }
@@ -308,23 +318,23 @@ void MainWindow::draw(MyGlWidget *theGL)
 
     for (int i=0; i<numFloors; i++) {
         if (i == storySelected)
-            theGL->drawLine(i+1+numFloors, dispResponses[i][currentStep],floorHeights[i],
-                            dispResponses[i+1][currentStep],floorHeights[i+1], 2, 1, 0, 0);
+            theGL->drawLine(i+1+numFloors, theDispResponse[i][currentStep],floorHeights[i],
+                            theDispResponse[i+1][currentStep],floorHeights[i+1], 2, 1, 0, 0);
         else if (i >= sMinSelected && i <= sMaxSelected)
-            theGL->drawLine(i+1+numFloors, dispResponses[i][currentStep],floorHeights[i],
-                            dispResponses[i+1][currentStep],floorHeights[i+1], 2, 1, 0, 0);
+            theGL->drawLine(i+1+numFloors, theDispResponse[i][currentStep],floorHeights[i],
+                           theDispResponse[i+1][currentStep],floorHeights[i+1], 2, 1, 0, 0);
         else
-            theGL->drawLine(i+1+numFloors, dispResponses[i][currentStep],floorHeights[i],
-                            dispResponses[i+1][currentStep],floorHeights[i+1], 2, 0, 0, 0);
+            theGL->drawLine(i+1+numFloors, theDispResponse[i][currentStep],floorHeights[i],
+                            theDispResponse[i+1][currentStep],floorHeights[i+1], 2, 0, 0, 0);
     }
     
     for (int i=0; i<=numFloors; i++) {
         if (i == floorSelected)
-            theGL->drawPoint(i, dispResponses[i][currentStep],floorHeights[i], 10, 1, 0, 0);
+            theGL->drawPoint(i,  theDispResponse[i][currentStep],floorHeights[i], 10, 1, 0, 0);
         else if (i >= fMinSelected && i <= fMaxSelected)
-            theGL->drawPoint(i, dispResponses[i][currentStep],floorHeights[i], 10, 1, 0, 0);
+            theGL->drawPoint(i, theDispResponse[i][currentStep],floorHeights[i], 10, 1, 0, 0);
         else
-            theGL->drawPoint(i, dispResponses[i][currentStep],floorHeights[i], 10, 0, 0, 1);
+            theGL->drawPoint(i, theDispResponse[i][currentStep],floorHeights[i], 10, 0, 0, 1);
     }
 
     // display range of displacement
@@ -333,17 +343,9 @@ void MainWindow::draw(MyGlWidget *theGL)
     theGL->drawLine(0, -maxDisp, 0.0, maxDisp, 0.0, 1.0, 0., 0., 0.);
 
     currentTime->setText(QString().setNum(currentStep*dt,'f',2));
-    currentDisp->setText(QString().setNum(dispResponses[numFloors][currentStep],'f',2));
+    currentDisp->setText(QString().setNum(theDispResponse[numFloors][currentStep],'f',2));
     theGL->drawBuffers();
 
-    // update red dot on earthquake plot
-    /*
-    groupTracer->setGraph(0);
-    groupTracer->setGraph(graph);
-    groupTracer->setGraphKey(currentStep*dt);
-    groupTracer->updatePosition();
-    //earthquakePlot->replot();
-*/
 }
 
 
@@ -353,9 +355,48 @@ void MainWindow::updatePeriod()
     //periods = 2.0;
 }
 
-void MainWindow::setBasicModel(int numF, double W, double H, double K, double zeta, double grav)
+void MainWindow::setBasicModel(int numF, double W, double H, double K, double zeta, double grav, double width, double depth)
 {
     if (numFloors != numF) {
+
+        if (dispResponsesEarthquake != 0) {
+            for (int j=0; j<numFloors+1; j++)
+                delete [] dispResponsesEarthquake[j];
+            delete [] dispResponsesEarthquake;
+        }
+        if (storyForceResponsesEarthquake != 0) {
+            for (int j=0; j<numFloors; j++)
+                delete [] storyForceResponsesEarthquake[j];
+            delete [] storyForceResponsesEarthquake;
+        }
+        if (storyDriftResponsesEarthquake != 0) {
+            for (int j=0; j<numFloors; j++)
+                delete [] storyDriftResponsesEarthquake[j];
+            delete [] storyDriftResponsesEarthquake;
+        }
+
+        if (dispResponsesWind != 0) {
+            for (int j=0; j<numFloors+1; j++)
+                delete [] dispResponsesWind[j];
+            delete [] dispResponsesWind;
+        }
+        if (storyForceResponsesWind != 0) {
+            for (int j=0; j<numFloors; j++)
+                delete [] storyForceResponsesWind[j];
+            delete [] storyForceResponsesWind;
+        }
+        if (storyDriftResponsesWind != 0) {
+            for (int j=0; j<numFloors; j++)
+                delete [] storyDriftResponsesWind[j];
+            delete [] storyDriftResponsesWind;
+        }
+
+        dispResponsesEarthquake = 0;
+        dispResponsesWind = 0;
+        storyDriftResponsesEarthquake = 0;
+        storyDriftResponsesWind = 0;
+        storyForceResponsesEarthquake = 0;
+        storyForceResponsesWind = 0;
 
         // if invalid numFloor, return
         if (numF <= 0) {
@@ -378,22 +419,6 @@ void MainWindow::setBasicModel(int numF, double W, double H, double K, double ze
         if (dampRatios != 0)
             delete [] dampRatios;
 
-        if (dispResponses != 0) {
-            for (int j=0; j<numFloors+1; j++)
-                delete [] dispResponses[j];
-            delete [] dispResponses;
-        }
-        if (storyForceResponses != 0) {
-            for (int j=0; j<numFloors; j++)
-                delete [] storyForceResponses[j];
-            delete [] storyForceResponses;
-        }
-        if (storyDriftResponses != 0) {
-            for (int j=0; j<numFloors; j++)
-                delete [] storyDriftResponses[j];
-            delete [] storyDriftResponses;
-        }
-
         weights = new double[numF];
         k = new double[numF];
         fy = new double[numF];
@@ -401,18 +426,6 @@ void MainWindow::setBasicModel(int numF, double W, double H, double K, double ze
         floorHeights = new double[numF+1];
         storyHeights = new double[numF];
         dampRatios = new double[numF];
-
-        dispResponses = new double *[numF+1];
-        storyForceResponses = new double *[numF];
-        storyDriftResponses = new double *[numF];
-
-        for (int i=0; i<numF+1; i++) {
-            dispResponses[i] = new double[numSteps+1]; // +1 as doing 0 at start
-            if (i<numF) {
-                storyForceResponses[i] = new double[numSteps+1];
-                storyDriftResponses[i] = new double[numSteps+1];
-            }
-        }
     }
 
     // set values
@@ -423,6 +436,10 @@ void MainWindow::setBasicModel(int numF, double W, double H, double K, double ze
     buildingH = H;
     dampingRatio = zeta;
     g=grav;
+    buildingWidth = width;
+    buildingDepth = depth;
+
+    this->setData(numSteps, dt, eqData);
 
     for (int i=0; i<numF; i++) {
         weights[i] = floorW;
@@ -443,6 +460,14 @@ void MainWindow::setBasicModel(int numF, double W, double H, double K, double ze
     inFloors->setText(QString::number(numF));
     inHeight->setText(QString::number(buildingH));
     inDamping->setText(QString::number(zeta));
+
+    squareHeight->setText((QString::number(buildingH)));
+    rectangularHeight->setText((QString::number(buildingH)));
+    circularHeight->setText((QString::number(buildingH)));
+    squareWidth->setText((QString::number(width)));
+    circularDiameter->setText((QString::number(width)));
+    rectangularWidth->setText((QString::number(width)));
+    rectangularDepth->setText((QString::number(depth)));
 
 
     needAnalysis = true;
@@ -471,15 +496,12 @@ MainWindow::on_includePDeltaChanged(int state)
 }
 
 
-
-
-
 void MainWindow::on_inFloors_editingFinished()
 {
     QString textFloors =  inFloors->text();
     int numFloorsText = textFloors.toInt();
     if (numFloorsText != numFloors) {
-        this->setBasicModel(numFloorsText, buildingW, buildingH, storyK, dampingRatio, g);
+        this->setBasicModel(numFloorsText, buildingW, buildingH, storyK, dampingRatio, g, buildingWidth, buildingDepth);
         floorSelected = -1;
         storySelected = -1;
         fMinSelected = -1;
@@ -572,6 +594,32 @@ void MainWindow::on_inDamping_editingFinished()
         this->reset();
     }
 }
+
+void MainWindow::on_dragCoefficient_editingFinished()
+{
+    QString text =  dragCoefficient->text();
+    if (text.isNull())
+        return;
+
+    needAnalysis=true;
+    this->reset();
+}
+
+void MainWindow::on_windGustSpeed_editingFinished()
+{
+    QString text =  windGustSpeed->text();
+    if (text.isNull())
+        return;
+
+    needAnalysis=true;
+    this->reset();
+}
+void MainWindow::on_expCatagory_indexChanged()
+{
+    needAnalysis=true;
+    this->reset();
+}
+
 
 void MainWindow::on_scaleFactor_editingFinished()
 {
@@ -761,210 +809,421 @@ void MainWindow::on_inStoryB_editingFinished()
 }
 
 
+void
+MainWindow::doEarthquakeAnalysis() {
+
+    theDomain.clearAll();
+    OPS_clearAllUniaxialMaterial();
+    ops_Dt = 0.0;
+
+    //
+    // create the nodes
+    //
+
+    Node **theNodes = new Node *[numFloors+1];
+    for (int i=0; i<= numFloors; i++) {
+        Matrix theMass(1,1);
+        Node *theNode=new Node(i+1,1, 0.0);
+        theNodes[i] = theNode;
+        theDomain.addNode(theNode);
+        if (i == 0) {
+            SP_Constraint *theSP = new SP_Constraint(i+1, 0, 0., true);
+            theDomain.addSP_Constraint(theSP);
+        } else {
+            theMass(0,0) = weights[i-1]/g;
+            theNode->setMass(theMass);
+        }
+    }
+
+
+    // create the vectors for the element orientation
+    Vector x(3); x(0) = 1.0; x(1) = 0.0; x(2) = 0.0;
+    Vector y(3); y(0) = 0.0; y(1) = 1.0; y(2) = 0.0;
+
+    double axialLoad = 0;
+    ZeroLength **theElements = new ZeroLength *[numFloors];
+    for (int i=numFloors;  i>0; i--) {
+        UniaxialMaterial *theMat = new Steel01(i,fy[i-1],k[i-1],b[i-1]);
+        //  ZeroLength *theEle = new ZeroLength(i+1, 1, i+1, i+2,
+        //x, y, *theMat, 0);
+        double PdivL = 0.0;
+        if (includePDelta == true && storyHeights[i-1] != 0) {
+            axialLoad = axialLoad + weights[i-1];
+            PdivL = -axialLoad/storyHeights[i-1]; // negative for compression
+        }
+        ZeroLength *theEle = new ZeroLength(i, i, i+1, *theMat, PdivL);
+        theElements[i-1] = theEle;
+        theDomain.addElement(theEle);
+        delete theMat; // each ele makes it's own copy
+    }
+
+    //
+    // create load pattern and add loads
+    //
+
+    PathSeries *theSeries;
+    theSeries = new PathSeries(1, *motionData, dt, g*scaleFactor);
+    opserr << "MotionData:size " << motionData->Size() << "\n";
+
+    GroundMotion *theGroundMotion = new GroundMotion(0,0,theSeries);
+    LoadPattern *theLoadPattern = new UniformExcitation(*theGroundMotion, 0, 1);
+
+    theDomain.addLoadPattern(theLoadPattern);
+
+    //
+    // create the analysis
+    //
+
+    AnalysisModel     *theModel = new AnalysisModel();
+    CTestNormDispIncr *theTest = new CTestNormDispIncr(1.0e-10, 20, 0);
+    EquiSolnAlgo      *theSolnAlgo = new NewtonRaphson();//INITIAL_TANGENT);
+    TransientIntegrator  *theIntegrator = new Newmark(0.5, 0.25);
+    //ConstraintHandler *theHandler = new TransformationConstraintHandler();
+    ConstraintHandler *theHandler = new PlainHandler();
+    RCM               *theRCM = new RCM();
+    DOF_Numberer      *theNumberer = new DOF_Numberer(*theRCM);
+#ifdef _FORTRAN_LIBS
+    BandGenLinSolver  *theSolver = new BandGenLinLapackSolver();
+    LinearSOE         *theSOE = new BandGenLinSOE(*theSolver);
+#else
+    ProfileSPDLinSolver  *theSolver = new ProfileSPDLinDirectSolver();
+    LinearSOE         *theSOE = new ProfileSPDLinSOE(*theSolver);
+#endif
+    DirectIntegrationAnalysis    theAnalysis(theDomain,
+                                             *theHandler,
+                                             *theNumberer,
+                                             *theModel,
+                                             *theSolnAlgo,
+                                             *theSOE,
+                                             *theIntegrator);
+    theSolnAlgo->setConvergenceTest(theTest);
+
+    SymBandEigenSolver *theEigenSolver = new SymBandEigenSolver();
+    EigenSOE *theEigenSOE = new SymBandEigenSOE(*theEigenSolver, *theModel);
+    theAnalysis.setEigenSOE(*theEigenSOE);
+
+    int ok = theAnalysis.eigen(numFloors,true);
+    const Vector &theEig = theDomain.getEigenvalues();
+    if (eigValues->Size() != numFloors) {
+        eigValues->resize(numFloors);
+    }
+    *eigValues = theEig;
+    if (ok == 0)
+        for (int i=0; i<numFloors; i++)
+            if (theEig(i) <= 0)
+                ok = -1;
+
+    int numCombo = periodComboBox->count();
+
+    if (numCombo != numFloors) {
+        periodComboBox->clear();
+        QString t1 = QString("Fundamental Period");
+        periodComboBox->addItem(t1);
+        for (int i=1; i<numFloors; i++) {
+            QString t1 = QString("T") + QString::number(i+1);
+            periodComboBox->addItem(t1);
+        }
+    }
+
+    if (ok != 0) {
+        needAnalysis = false;
+        analysisFailed = true;
+        for (int i=0; i<numSteps; i++) {
+            for (int j=0; j<numFloors+1; j++) {
+                dispResponsesEarthquake[j][i] = 0;
+                if (j < numFloors) {
+                    storyForceResponsesEarthquake[j][i]=0;
+                    storyDriftResponsesEarthquake[j][i]=0;
+                }
+            }
+        }
+        maxEarthquakeDispLabel->setText(QString().setNum(0.0,'f',2));
+        currentPeriod->setText(QString(tr("undefined")));
+        delete [] theNodes;
+        delete [] theElements;
+
+        QMessageBox::warning(this, tr("Application"),
+                             tr("Eigenvalue Analysis Failed.<p> Possible Causes: negstive mass, negative story stiffness, or "
+                                "if PDelta is included, a story stiffness - axial load divided by L is negtive resulting "
+                                "in non postive definite stiffness matrix"));
+
+        return;
+    }
+
+    Vector dampValues(numFloors);
+    for (int i=0; i<numFloors; i++) {
+        dampValues(i)=dampRatios[i];
+    }
+    theDomain.setModalDampingFactors(&dampValues);
+  // theDomain.setRayleighDampingFactors(0.001,9.,0.,0.);
+
+    double T1 = 2*3.14159/sqrt(theEig(0));
+    for (int i=0; i<=numSteps; i++) {
+
+        int ok = theAnalysis.analyze(1, dt);
+        if (ok != 0) {
+            needAnalysis = false;
+            analysisFailed = true;
+            for (int k=i; k<numSteps; k++) {
+                for (int j=0; j<numFloors+1; j++) {
+                    dispResponsesEarthquake[j][i] = 0;
+                    if (j < numFloors) {
+                        storyForceResponsesEarthquake[j][k]=0;
+                        storyDriftResponsesEarthquake[j][k]=0;
+                    }
+                }
+
+            }
+            QMessageBox::warning(this, tr("Application"),
+                                 tr("Transient Analysis Failed under Earthquake Loading"));
+            break;
+        }
+        for (int j=0; j<numFloors+1; j++) {
+            double nodeDisp = theNodes[j]->getDisp()(0);
+            dispResponsesEarthquake[j][i] = nodeDisp;
+            if (fabs(nodeDisp) > maxDisp)
+                maxDisp = fabs(nodeDisp);
+
+            if (j < numFloors) {
+
+                storyForceResponsesEarthquake[j][i]= theElements[j]->getForce();
+                storyDriftResponsesEarthquake[j][i] = theElements[j]->getDrift();
+            }
+        }
+    }
+
+    // clean up memory
+    delete [] theNodes;
+    delete [] theElements;
+
+    // reset values, i.e. slider position, current displayed step...
+    maxEarthquakeDispLabel->setText(QString().setNum(maxDisp,'f',2));
+
+    int num = periodComboBox->currentIndex();
+    double eigenValue = (*eigValues)(num);
+    if (eigenValue <= 0) {
+        currentPeriod->setText(QString("undefined"));
+    } else {
+        double period = 2*3.14159/sqrt((eigenValue));
+        currentPeriod->setText(QString().setNum(period,'f',2));
+    }
+
+}
+
+
+
+void 
+MainWindow::doWindAnalysis() {
+
+    theDomain.clearAll();
+    OPS_clearAllUniaxialMaterial();
+    ops_Dt = 0.0;
+
+    //
+    // create the nodes
+    //
+
+    Node **theNodes = new Node *[numFloors+1];
+    for (int i=0; i<= numFloors; i++) {
+        Matrix theMass(1,1);
+        Node *theNode=new Node(i+1,1, 0.0);
+        theNodes[i] = theNode;
+        theDomain.addNode(theNode);
+        if (i == 0) {
+            SP_Constraint *theSP = new SP_Constraint(i+1, 0, 0., true);
+            theDomain.addSP_Constraint(theSP);
+        } else {
+            theMass(0,0) = weights[i-1]/g;
+            theNode->setMass(theMass);
+        }
+    }
+
+    // create the vectors for the element orientation
+    Vector x(3); x(0) = 1.0; x(1) = 0.0; x(2) = 0.0;
+    Vector y(3); y(0) = 0.0; y(1) = 1.0; y(2) = 0.0;
+
+    double axialLoad = 0;
+    ZeroLength **theElements = new ZeroLength *[numFloors];
+    for (int i=numFloors;  i>0; i--) {
+        UniaxialMaterial *theMat = new Steel01(i,fy[i-1],k[i-1],b[i-1]);
+        //  ZeroLength *theEle = new ZeroLength(i+1, 1, i+1, i+2,
+        //x, y, *theMat, 0);
+        double PdivL = 0.0;
+        if (includePDelta == true && storyHeights[i-1] != 0) {
+            axialLoad = axialLoad + weights[i-1];
+            PdivL = -axialLoad/storyHeights[i-1]; // negative for compression
+        }
+        ZeroLength *theEle = new ZeroLength(i, i, i+1, *theMat, PdivL);
+        theElements[i-1] = theEle;
+        theDomain.addElement(theEle);
+        delete theMat; // each ele makes it's own copy
+    }
+
+    //
+    // create load pattern and add loads
+    //
+
+   // std::vector<double> hfloors = {288.0, 144.0, 144.0, 144.0, 144.0};
+
+    std::vector<double> hfloors(numFloors);
+    for (int i=0; i<numFloors; i++) {
+        hfloors.at(i) = storyHeights[i];
+    }
+
+    Wind::ExposureCategory catagory = Wind::ExposureCategory::A;
+    int catIndex = expCatagory->currentIndex();
+    if (catIndex == 1)
+        catagory = Wind::ExposureCategory::B;
+    else if (catIndex == 2)
+        catagory = Wind::ExposureCategory::C;
+    else if (catIndex == 3)
+        catagory = Wind::ExposureCategory::D;
+
+    double width = buildingWidth;
+    double dragC = dragCoefficient->text().toDouble();
+    double windGS = windGustSpeed->text().toDouble();
+
+    WindForces forces = GetWindForces(catagory, windGS, dragC, buildingWidth, hfloors, 100.0);
+    std::vector<double> force1 = forces.getFloorForces(0);
+    std::vector<double> force2 = forces.getFloorForces(1);
+    double wind_dt = forces.getTimeStep();
+    for (int i=1; i<= numFloors; i++) {
+        std::vector<double> force = forces.getFloorForces(i-1);
+        Vector loadPath(force.size());
+        for (int i=0; i<force.size(); i++) {
+            loadPath(i)=force[i];
+        }
+        PathSeries *theSeries = new PathSeries(1, loadPath, wind_dt, 1.0/4448.22); // 4482 Newton to kips
+        LoadPattern *theLoadPattern = new LoadPattern(i);
+        theLoadPattern->setTimeSeries(theSeries);
+        Vector theLoadVector(1);
+        theLoadVector(0) = 1.0;
+        NodalLoad *theLoad = new NodalLoad(i,i+1,theLoadVector);
+        theLoadPattern->addNodalLoad(theLoad);
+        theDomain.addLoadPattern(theLoadPattern);
+    }
+
+    //
+    // create the analysis
+    //
+
+    AnalysisModel     *theModel = new AnalysisModel();
+    CTestNormDispIncr *theTest = new CTestNormDispIncr(1.0e-10, 20, 0);
+    EquiSolnAlgo      *theSolnAlgo = new NewtonRaphson();//INITIAL_TANGENT);
+    TransientIntegrator  *theIntegrator = new Newmark(0.5, 0.25);
+    //ConstraintHandler *theHandler = new TransformationConstraintHandler();
+    ConstraintHandler *theHandler = new PlainHandler();
+    RCM               *theRCM = new RCM();
+    DOF_Numberer      *theNumberer = new DOF_Numberer(*theRCM);
+#ifdef _FORTRAN_LIBS
+    BandGenLinSolver  *theSolver = new BandGenLinLapackSolver();
+    LinearSOE         *theSOE = new BandGenLinSOE(*theSolver);
+#else
+    ProfileSPDLinSolver  *theSolver = new ProfileSPDLinDirectSolver();
+    LinearSOE         *theSOE = new ProfileSPDLinSOE(*theSolver);
+#endif
+    DirectIntegrationAnalysis    theAnalysis(theDomain,
+                                             *theHandler,
+                                             *theNumberer,
+                                             *theModel,
+                                             *theSolnAlgo,
+                                             *theSOE,
+                                             *theIntegrator);
+    theSolnAlgo->setConvergenceTest(theTest);
+
+    SymBandEigenSolver *theEigenSolver = new SymBandEigenSolver();
+    EigenSOE *theEigenSOE = new SymBandEigenSOE(*theEigenSolver, *theModel);
+    theAnalysis.setEigenSOE(*theEigenSOE);
+
+    int ok = theAnalysis.eigen(numFloors,true);
+    const Vector &theEig = theDomain.getEigenvalues();
+    if (eigValues->Size() != numFloors) {
+        eigValues->resize(numFloors);
+    }
+    *eigValues = theEig;
+    if (ok == 0)
+        for (int i=0; i<numFloors; i++)
+            if (theEig(i) <= 0)
+                ok = -1;
+
+    if (ok != 0) {
+        needAnalysis = false;
+        analysisFailed = true;
+        for (int i=0; i<numSteps; i++) {
+            for (int j=0; j<numFloors+1; j++) {
+                dispResponsesWind[j][i] = 0;
+                if (j < numFloors) {
+                    storyForceResponsesWind[j][i]=0;
+                    storyDriftResponsesWind[j][i]=0;
+                }
+            }
+        }
+        maxWindDispLabel->setText(QString().setNum(0.0,'f',2));
+        return;
+    }
+
+    Vector dampValues(numFloors);
+    for (int i=0; i<numFloors; i++) {
+        dampValues(i)=dampRatios[i];
+    }
+    theDomain.setModalDampingFactors(&dampValues);
+    double T1 = 2*3.14159/sqrt(theEig(0));
+    double maxWindDisp = 0;
+
+    for (int i=0; i<=numSteps; i++) { // <= due to adding 0 at start
+        int ok = theAnalysis.analyze(1, dt);
+        if (ok != 0) {
+            needAnalysis = false;
+            analysisFailed = true;
+            for (int k=i; k<numSteps; k++) {
+                for (int j=0; j<numFloors+1; j++) {
+                    dispResponsesWind[j][i] = 0;
+                    if (j < numFloors) {
+                        storyForceResponsesWind[j][k]=0;
+                        storyDriftResponsesWind[j][k]=0;
+                    }
+                }
+
+            }
+            QMessageBox::warning(this, tr("Application"),
+                                 tr("Transient Analysis Failed for Wind Loading"));
+            break;
+        }
+        for (int j=0; j<numFloors+1; j++) {
+            double nodeDisp = theNodes[j]->getDisp()(0);
+            dispResponsesWind[j][i] = nodeDisp;
+            if (fabs(nodeDisp) > maxDisp)
+                maxDisp = fabs(nodeDisp);
+            if (fabs(nodeDisp) > maxWindDisp)
+                maxWindDisp = fabs(nodeDisp);
+
+            if (j < numFloors) {
+
+                storyForceResponsesWind[j][i]= theElements[j]->getForce();
+                storyDriftResponsesWind[j][i] = theElements[j]->getDrift();
+            }
+        }
+    }
+
+    // clean up memory
+    delete [] theNodes;
+    delete [] theElements;
+
+    // reset values, i.e. slider position, current displayed step...
+    maxWindDispLabel->setText(QString().setNum(maxWindDisp,'f',2));
+
+}
+
+
 void MainWindow::doAnalysis()
 { 
     if (needAnalysis == true && analysisFailed == false) {
 
-        // clear existinqDebugg model
-        theDomain.clearAll();
-        OPS_clearAllUniaxialMaterial();
-        ops_Dt = 0.0;
-
-        Node **theNodes = new Node *[numFloors+1];
-        for (int i=0; i<= numFloors; i++) {
-            Matrix theMass(1,1);
-            Node *theNode=new Node(i+1,1, 0.0);
-            theNodes[i] = theNode;
-            theDomain.addNode(theNode);
-            if (i == 0) {
-                SP_Constraint *theSP = new SP_Constraint(i+1, 0, 0., true);
-                theDomain.addSP_Constraint(theSP);
-            } else {
-                theMass(0,0) = weights[i-1]/g;
-                theNode->setMass(theMass);
-            }
-        }
-
-
-        // create the vectors for the element orientation
-        Vector x(3); x(0) = 1.0; x(1) = 0.0; x(2) = 0.0;
-        Vector y(3); y(0) = 0.0; y(1) = 1.0; y(2) = 0.0;
-
-        double axialLoad = 0;
-        ZeroLength **theElements = new ZeroLength *[numFloors];
-        for (int i=numFloors;  i>0; i--) {
-            UniaxialMaterial *theMat = new Steel01(i,fy[i-1],k[i-1],b[i-1]);
-            //  ZeroLength *theEle = new ZeroLength(i+1, 1, i+1, i+2,
-            //x, y, *theMat, 0);
-            double PdivL = 0.0;
-            if (includePDelta == true && storyHeights[i-1] != 0) {
-                axialLoad = axialLoad + weights[i-1];
-                PdivL = -axialLoad/storyHeights[i-1]; // negative for compression
-            }
-            ZeroLength *theEle = new ZeroLength(i, i, i+1, *theMat, PdivL);
-            theElements[i-1] = theEle;
-            theDomain.addElement(theEle);
-            delete theMat; // each ele makes it's own copy
-        }
-
-        //
-        // create load pattern and add loads
-        //
-        PathSeries *theSeries;
-        theSeries = new PathSeries(1, *motionData, dt, g*scaleFactor);
-          /*
-        if (motionTypeValue == 0) {
-            theSeries = new PathSeries(1, *eqData, dt, g*scaleFactor);
-        } else {
-            theSeries = new PathSeries(1, *harmonicData, dtHarmonicMotion, g*magHarmonicMotion);
-        }
-        */
-        GroundMotion *theGroundMotion = new GroundMotion(0,0,theSeries);
-        LoadPattern *theLoadPattern = new UniformExcitation(*theGroundMotion, 0, 1);
-
-        //   theLoadPattern->setTimeSeries(theTimeSeries);
-        //   static Vector load(1); load.Zero(); load(0) = 1;
-        //   NodalLoad *theLoad = new NodalLoad(0, numFloors, load);
-        //   theLoadPattern->addNodalLoad(theLoad);
-
-        theDomain.addLoadPattern(theLoadPattern);
-
-        //
-        // create the analysis
-        //
-
-        AnalysisModel     *theModel = new AnalysisModel();
-        CTestNormDispIncr *theTest = new CTestNormDispIncr(1.0e-10, 20, 0);
-        EquiSolnAlgo      *theSolnAlgo = new NewtonRaphson();//INITIAL_TANGENT);
-        TransientIntegrator  *theIntegrator = new Newmark(0.5, 0.25);
-        //ConstraintHandler *theHandler = new TransformationConstraintHandler();
-        ConstraintHandler *theHandler = new PlainHandler();
-        RCM               *theRCM = new RCM();
-        DOF_Numberer      *theNumberer = new DOF_Numberer(*theRCM);
-#ifdef _FORTRAN_LIBS
-        BandGenLinSolver  *theSolver = new BandGenLinLapackSolver();
-        LinearSOE         *theSOE = new BandGenLinSOE(*theSolver);
-#else
-        ProfileSPDLinSolver  *theSolver = new ProfileSPDLinDirectSolver();
-        LinearSOE         *theSOE = new ProfileSPDLinSOE(*theSolver);
-#endif
-        DirectIntegrationAnalysis    theAnalysis(theDomain,
-                                                 *theHandler,
-                                                 *theNumberer,
-                                                 *theModel,
-                                                 *theSolnAlgo,
-                                                 *theSOE,
-                                                 *theIntegrator);
-        theSolnAlgo->setConvergenceTest(theTest);
-
-        SymBandEigenSolver *theEigenSolver = new SymBandEigenSolver();
-        EigenSOE *theEigenSOE = new SymBandEigenSOE(*theEigenSolver, *theModel);
-        theAnalysis.setEigenSOE(*theEigenSOE);
-
-        int ok = theAnalysis.eigen(numFloors,true);
-        const Vector &theEig = theDomain.getEigenvalues();
-        if (eigValues->Size() != numFloors) {
-                eigValues->resize(numFloors);
-        }
-         *eigValues = theEig;
-        if (ok == 0)
-            for (int i=0; i<numFloors; i++)
-                if (theEig(i) <= 0)
-                    ok = -1;
-
-        int numCombo = periodComboBox->count();
-
-        if (numCombo != numFloors) {
-            periodComboBox->clear();
-            QString t1 = QString("Fundamental Period");
-            periodComboBox->addItem(t1);
-            for (int i=1; i<numFloors; i++) {
-                QString t1 = QString("T") + QString::number(i+1);
-                periodComboBox->addItem(t1);
-            }
-        }
-
-        if (ok != 0) {
-            needAnalysis = false;
-            analysisFailed = true;
-            for (int i=0; i<numSteps; i++) {
-                for (int j=0; j<numFloors+1; j++) {
-                    dispResponses[j][i] = 0;
-                    if (j < numFloors) {
-                        storyForceResponses[j][i]=0;
-                        storyDriftResponses[j][i]=0;
-                    }
-                }
-            }
-            maxEarthquakeDispLabel->setText(QString().setNum(0.0,'f',2));
-            currentPeriod->setText(QString(tr("undefined")));
-            delete [] theNodes;
-            delete [] theElements;
-
-            QMessageBox::warning(this, tr("Application"),
-                                 tr("Eigenvalue Analysis Failed.<p> Possible Causes: negstive mass, negative story stiffness, or "
-                                    "if PDelta is included, a story stiffness - axial load divided by L is negtive resulting "
-                                    "in non postive definite stiffness matrix"));
-
-            return;
-        }
-
-        Vector dampValues(numFloors);
-        for (int i=0; i<numFloors; i++) {
-            dampValues(i)=dampRatios[i];
-        }
-        theDomain.setModalDampingFactors(&dampValues);
-        double T1 = 2*3.14159/sqrt(theEig(0));
-
         maxDisp = 0;
-        for (int i=0; i<=numSteps; i++) { // <= due to adding 0 at start
-            int ok = theAnalysis.analyze(1, dt);
-            if (ok != 0) {
-                needAnalysis = false;
-                analysisFailed = true;
-                for (int k=i; k<numSteps; k++) {
-                    for (int j=0; j<numFloors+1; j++) {
-                        dispResponses[j][i] = 0;
-                        if (j < numFloors) {
-                            storyForceResponses[j][k]=0;
-                            storyDriftResponses[j][k]=0;
-                        }
-                    }
+        this->doEarthquakeAnalysis();
+        this->doWindAnalysis();
 
-                }
-                QMessageBox::warning(this, tr("Application"),
-                                     tr("Transient Analysis Failed"));
-                break;
-            }
-            for (int j=0; j<numFloors+1; j++) {
-                double nodeDisp = theNodes[j]->getDisp()(0);
-                dispResponses[j][i] = nodeDisp;
-                if (fabs(nodeDisp) > maxDisp)
-                    maxDisp = fabs(nodeDisp);
-
-                if (j < numFloors) {
-
-                    storyForceResponses[j][i]= theElements[j]->getForce();
-                    storyDriftResponses[j][i] = theElements[j]->getDrift();
-                }
-            }
-        }
-        // clean up memory
-        delete [] theNodes;
-        delete [] theElements;
-
-        // reset values, i.e. slider position, current displayed step...
-        maxEarthquakeDispLabel->setText(QString().setNum(maxDisp,'f',2));
-
-        int num = periodComboBox->currentIndex();
-        double eigenValue = (*eigValues)(num);
-        if (eigenValue <= 0) {
-            currentPeriod->setText(QString("undefined"));
-        } else {
-            double period = 2*3.14159/sqrt((eigenValue));
-            currentPeriod->setText(QString().setNum(period,'f',2));
-        }
-       // currentPeriod->setText(QString().setNum(T1,'f',2));
+        // currentPeriod->setText(QString().setNum(T1,'f',2));
         needAnalysis = false;
         currentStep = 0;
         //  groupTracer->setGraphKey(0);
@@ -976,21 +1235,26 @@ void MainWindow::doAnalysis()
         int storyForceTime = theForceTimeResponse->getItem() -1;
         //int storyForceDrift = theForceDispResponse->getItem() -1;
 
-        nodeResponseValues.resize(numSteps);
-        storyForceValues.resize(numSteps);
-        storyDriftValues.resize(numSteps);
+        nodeResponseValuesEarthquake.resize(numSteps);
+        storyForceValuesEarthquake.resize(numSteps);
+        storyDriftValuesEarthquake.resize(numSteps);
+        nodeResponseValuesWind.resize(numSteps);
+        storyForceValuesWind.resize(numSteps);
+        storyDriftValuesWind.resize(numSteps);
+
 
         for (int i = 0; i < numSteps; ++i) {
-            nodeResponseValues[i]=dispResponses[nodeResponseFloor][i];
-            storyForceValues[i]=storyForceResponses[storyForceTime][i];
-            storyDriftValues[i]=storyDriftResponses[storyForceTime][i];
-            // qDebug() << i*dt << " " << storyForceResponses[storyForceTime][i] << " " << storyDriftResponses[storyForceTime][i];
+            nodeResponseValuesEarthquake[i]=dispResponsesEarthquake[nodeResponseFloor][i];
+            storyForceValuesEarthquake[i]=storyForceResponsesEarthquake[storyForceTime][i];
+            storyDriftValuesEarthquake[i]=storyDriftResponsesEarthquake[storyForceTime][i];
+            nodeResponseValuesWind[i]=dispResponsesWind[nodeResponseFloor][i];
+            storyForceValuesWind[i]=storyForceResponsesWind[storyForceTime][i];
+            storyDriftValuesWind[i]=storyDriftResponsesWind[storyForceTime][i];
         }
 
-
-        theNodeResponse->setData(nodeResponseValues,time,numSteps,dt);
-        theForceTimeResponse->setData(storyForceValues,time,numSteps,dt);
-        theForceDispResponse->setData(storyForceValues,storyDriftValues,numSteps);
+        theNodeResponse->setData(nodeResponseValuesEarthquake,nodeResponseValuesWind,time,numSteps,dt);
+        theForceTimeResponse->setData(storyForceValuesEarthquake,storyForceValuesWind,time,numSteps,dt);
+        theForceDispResponse->setData(storyForceValuesEarthquake, storyDriftValuesEarthquake,numSteps);
     }
 }
 
@@ -1000,18 +1264,21 @@ MainWindow::setResponse(int floor, int mainItem)
     if (mainItem == 0) {
         if (floor > 0 && floor <= numFloors) {
             for (int i = 0; i < numSteps; ++i) {
-                nodeResponseValues[i]=dispResponses[floor][i];
+                nodeResponseValuesEarthquake[i]=dispResponsesEarthquake[floor][i];
+                nodeResponseValuesWind[i]=dispResponsesWind[floor][i];
             }
-            theNodeResponse->setData(nodeResponseValues,time,numSteps,dt);
+            theNodeResponse->setData(nodeResponseValuesEarthquake,nodeResponseValuesWind, time,numSteps,dt);
         }
     } else if (mainItem == 1 || mainItem == 2) {
         if (floor > 0 && floor <= numFloors) {
             for (int i = 0; i < numSteps; ++i) {
-                storyForceValues[i]=storyForceResponses[floor-1][i];
-                storyDriftValues[i]=storyDriftResponses[floor-1][i];
+                storyForceValuesEarthquake[i]=storyForceResponsesEarthquake[floor-1][i];
+                storyDriftValuesEarthquake[i]=storyDriftResponsesEarthquake[floor-1][i];
+                storyForceValuesWind[i]=storyForceResponsesWind[floor-1][i];
+                storyDriftValuesWind[i]=storyDriftResponsesWind[floor-1][i];
             }
-            theForceTimeResponse->setData(storyForceValues,time,numSteps,dt);
-            theForceDispResponse->setData(storyForceValues,storyDriftValues,numSteps);
+            theForceDispResponse->setData(storyForceValuesEarthquake, storyForceValuesWind,time,numSteps,dt);
+            theForceDispResponse->setData(storyForceValuesEarthquake,storyDriftValuesEarthquake,numSteps);
             if (mainItem == 1)
                 theForceDispResponse->setItem(floor);
             else
@@ -1025,6 +1292,7 @@ void MainWindow::reset() {
     analysisFailed = false;
     needAnalysis = true;
     myEarthquakeResult->update();
+    myWindResponseResult->update();
 
     // update the properties table
 
@@ -1129,6 +1397,7 @@ void MainWindow::on_runButton_clicked()
 
         slider->setSliderPosition(currentStep);
         myEarthquakeResult->repaint();
+        myWindResponseResult->repaint();
         QCoreApplication::processEvents();
 
         currentStep++;
@@ -1144,10 +1413,12 @@ void MainWindow::on_slider_valueChanged(int value)
         if (needAnalysis == true) {
             this->doAnalysis();
             myEarthquakeResult->update();
+            myWindResponseResult->update();
         }
         currentStep = slider->value();
 
         myEarthquakeResult->repaint();
+        myWindResponseResult->repaint();
     }
 }
 
@@ -1296,85 +1567,96 @@ void MainWindow::on_PeriodSelectionChanged(const QString &arg1) {
 }
 
 
-
 void MainWindow::setData(int nStep, double deltaT, Vector *data) {
 
-    numSteps = nStep;
-    dt = deltaT;
-    motionData = data;
+    if (numFloors == 0 || deltaT == 0. || data == 0)
+        return;
 
+    qDebug() << "  MainWindow::setData()" << numFloors << " " << nStep << " " << deltaT;
+    if (deltaT*nStep < 5*60)
+        numSteps =  floor(5.0*60/deltaT); // nStep;
+    else
+        numSteps = nStep;
+
+    //numSteps = nStep;
+    excitationValues.resize(numSteps);
+    dt = deltaT;
+
+   qDebug() << "  MainWindow::setData()" << numFloors << " " << nStep << " " << deltaT << numSteps;
     double maxValue = 0;
 
-    if (dispResponses != 0) {
+    time.resize(numSteps);
+
+    if (dispResponsesEarthquake != 0) {
         for (int j=0; j<numFloors+1; j++)
-            delete [] dispResponses[j];
-        delete [] dispResponses;
+            delete [] dispResponsesEarthquake[j];
+        delete [] dispResponsesEarthquake;
     }
-    if (storyForceResponses != 0) {
+    if (storyForceResponsesEarthquake != 0) {
         for (int j=0; j<numFloors; j++)
-            delete [] storyForceResponses[j];
-        delete [] storyForceResponses;
+            delete [] storyForceResponsesEarthquake[j];
+        delete [] storyForceResponsesEarthquake;
     }
-    if (storyDriftResponses != 0) {
+    if (storyDriftResponsesEarthquake != 0) {
         for (int j=0; j<numFloors; j++)
-            delete [] storyDriftResponses[j];
-        delete [] storyDriftResponses;
+            delete [] storyDriftResponsesEarthquake[j];
+        delete [] storyDriftResponsesEarthquake;
     }
 
-    dispResponses = new double *[numFloors+1];
-    storyForceResponses = new double *[numFloors];
-    storyDriftResponses = new double *[numFloors];
+    dispResponsesEarthquake = new double *[numFloors+1];
+    storyForceResponsesEarthquake = new double *[numFloors];
+    storyDriftResponsesEarthquake = new double *[numFloors];
 
     for (int i=0; i<numFloors+1; i++) {
-        dispResponses[i] = new double[numSteps+1]; // +1 as doing 0 at start
+        dispResponsesEarthquake[i] = new double[numSteps+1]; // +1 as doing 0 at start
         if (i<numFloors) {
-            storyForceResponses[i] = new double[numSteps+1];
-            storyDriftResponses[i] = new double[numSteps+1];
+            storyForceResponsesEarthquake[i] = new double[numSteps+1];
+            storyDriftResponsesEarthquake[i] = new double[numSteps+1];
         }
     }
 
+    if (dispResponsesWind != 0) {
+        for (int j=0; j<numFloors+1; j++)
+            delete [] dispResponsesWind[j];
+        delete [] dispResponsesWind;
+    }
+    if (storyForceResponsesWind != 0) {
+        for (int j=0; j<numFloors; j++)
+            delete [] storyForceResponsesWind[j];
+        delete [] storyForceResponsesWind;
+    }
+    if (storyDriftResponsesWind != 0) {
+        for (int j=0; j<numFloors; j++)
+            delete [] storyDriftResponsesWind[j];
+        delete [] storyDriftResponsesWind;
+    }
 
-    excitationValues.resize(numSteps);
-    time.resize(numSteps);
+    dispResponsesWind = new double *[numFloors+1];
+    storyForceResponsesWind = new double *[numFloors];
+    storyDriftResponsesWind = new double *[numFloors];
 
-    for (int i = 0; i < numSteps; ++i) {
-        double value = (*motionData)[i] * scaleFactor;
+    for (int i=0; i<numFloors+1; i++) {
+        dispResponsesWind[i] = new double[numSteps+1]; // +1 as doing 0 at start
+        if (i<numFloors) {
+            storyForceResponsesWind[i] = new double[numSteps+1];
+            storyDriftResponsesWind[i] = new double[numSteps+1];
+        }
+    }
+
+    int motionDataSize = data->Size();
+    motionData = data;
+    for (int i = 0; i < numSteps; i++) {
+        double value = 0.;
+        if (i <  motionDataSize) {
+           value = (*motionData)[i] * scaleFactor;
+        }
+
         time[i]=i*dt;
         excitationValues[i]=value;
         if (fabs(value) > maxValue)
             maxValue = fabs(value);
     }
 
-    // reset earthquake plot
-    /*
-    earthquakePlot->clearGraphs();
-    graph = earthquakePlot->addGraph();
-    earthquakePlot->graph(0)->setData(time, excitationValues);
-    earthquakePlot->xAxis->setRange(0, numSteps*dt);
-    earthquakePlot->yAxis->setRange(-maxValue, maxValue);
-    earthquakePlot->axisRect()->setAutoMargins(QCP::msNone);
-    earthquakePlot->axisRect()->setMargins(QMargins(0,0,0,0));
-
-
-    QString textText("pga: "); textText.append(QString::number(maxValue,'g',2)); textText.append(tr("g"));
-    earthquakeText->setText(textText);
-
-    earthquakePlot->replot();
-    earthquakePlot->update();
-*/
-
-  /*
-    if (groupTracer != 0)
-        delete groupTracer;
-    groupTracer = new QCPItemTracer(earthquakePlot);
-    groupTracer->setGraph(graph);
-    groupTracer->setGraphKey(0);
-    groupTracer->setInterpolating(true);
-    groupTracer->setStyle(QCPItemTracer::tsCircle);
-    groupTracer->setPen(QPen(Qt::red));
-    groupTracer->setBrush(Qt::red);
-    groupTracer->setSize(7);
-*/
     // reset slider range
     slider->setRange(0, numSteps);
 
@@ -1441,7 +1723,7 @@ void MainWindow::open()
 void MainWindow::resetFile()
 {
     // reset to original
-    this->setBasicModel(5, 5*100, 5*144, 31.54, .05, 386.4);
+    this->setBasicModel(5, 5*100, 5*144, 31.54, .05, 386.4, 5*144, 5*144);
     this->setSelectionBoundary(-1.,-1.);
 
     // set currentFile blank
@@ -1764,25 +2046,25 @@ void MainWindow::loadFile(const QString &fileName)
   // clean up old
   //
 
-  if (dispResponses != 0) {
+  if (dispResponsesEarthquake != 0) {
     for (int j=0; j<numFloors+1; j++)
-      delete [] dispResponses[j];
-    delete [] dispResponses;
+      delete [] dispResponsesEarthquake[j];
+    delete [] dispResponsesEarthquake;
   }
-  if (storyForceResponses != 0) {
+  if (storyForceResponsesEarthquake != 0) {
     for (int j=0; j<numFloors; j++)
-      delete [] storyForceResponses[j];
-    delete [] storyForceResponses;
+      delete [] storyForceResponsesEarthquake[j];
+    delete [] storyForceResponsesEarthquake;
   }
-  if (storyDriftResponses != 0) {
+  if (storyDriftResponsesEarthquake != 0) {
     for (int j=0; j<numFloors; j++)
-      delete [] storyDriftResponses[j];
-    delete [] storyDriftResponses;
+      delete [] storyDriftResponsesEarthquake[j];
+    delete [] storyDriftResponsesEarthquake;
         }
   
-  dispResponses = 0;
-  storyForceResponses = 0;
-  storyDriftResponses = 0;
+  dispResponsesEarthquake = 0;
+  storyForceResponsesEarthquake = 0;
+  storyDriftResponsesEarthquake = 0;
 
     if (weights != 0)
         delete [] weights;
@@ -1879,11 +2161,10 @@ void MainWindow::loadFile(const QString &fileName)
         dampRatios[i] = theArray.at(i).toDouble();
 
 
-    dispResponses = new double *[numFloors+1];
+    dispResponsesEarthquake = new double *[numFloors+1];
     for (int i=0; i<numFloors+1; i++) {
-        dispResponses[i] = new double[numSteps+1]; // +1 as doing 0 at start
+        dispResponsesEarthquake[i] = new double[numSteps+1]; // +1 as doing 0 at start
     }
-
 
     //
     // clear records and inMotion combo box
@@ -1994,12 +2275,13 @@ void MainWindow::createActions() {
 
     QMenu *viewMenu = menuBar()->addMenu(tr("&View"));
 
-    QString tLabel("Time");
-    QString dLabel("Relative Displacement");
+    QString tLabel("Time (sec)");
+    QString dLabel("Relative Displacement (in)");
+    //QString dLabel("Total Displacement (in)");
     QString fLabel("Floor");
     QString sLabel("Story");
-    QString forceLabel("Shear Force");
-    QString dispLabel("Displacement");
+    QString forceLabel("Shear Force (kip)");
+    QString dispLabel("Displacement (inch)");
 
     theNodeResponse = new ResponseWidget(this, 0, fLabel, tLabel, dLabel);
     QDockWidget *nodeResponseDock = new QDockWidget(tr("Floor Displacement History"), this);
@@ -2147,7 +2429,7 @@ void MainWindow::createInputPanel() {
     categoryLabel->setText(tr("Exposure Category"));
     windBoxLayout->addWidget(categoryLabel,0,0);
 
-    QComboBox *expCatagory = new QComboBox();
+    expCatagory = new QComboBox();
     expCatagory->addItem("A");
     expCatagory->addItem("B");
     expCatagory->addItem("C");
@@ -2159,7 +2441,7 @@ void MainWindow::createInputPanel() {
     gustLabel->setText(tr("Gust Wind Speed"));
     windBoxLayout->addWidget(gustLabel,1,0);
 
-    QLineEdit *windGustSpeed = new QLineEdit();
+    windGustSpeed = new QLineEdit();
     windGustSpeed->setText("97.3");
     windBoxLayout->addWidget(windGustSpeed,1,1);
 
@@ -2343,9 +2625,9 @@ void MainWindow::createInputPanel() {
 
     QFrame *circularWidget = new QFrame();
     QHBoxLayout *circularLayout= new QHBoxLayout();
-    QLineEdit *circularHeight = new QLineEdit();
+    circularHeight = new QLineEdit();
     circularHeight->setMaximumWidth(100);
-    QLineEdit *circularDiameter = new QLineEdit();
+    circularDiameter = new QLineEdit();
     circularDiameter->setMaximumWidth(100);
     QLabel *circularHeightLabel = new QLabel("Height");
     QLabel *circularDiameterLabel = new QLabel("Diameter");
@@ -2385,6 +2667,8 @@ void MainWindow::createInputPanel() {
    //   - drag coefficient, story stiffness, modal damping ratio and a checkbox for inclusion of PDelta
    //
     dragCoefficient = createTextEntry(tr("Drag Coefficient"), mainPropertiesLayout, 100, 100, &blank);
+    dragCoefficient->setText("1.0");
+
     inK = createTextEntry(tr("Story Stiffness"), mainPropertiesLayout, 100, 100, &kipsInch);
     inDamping = createTextEntry(tr("Damping Ratio"), mainPropertiesLayout, 100, 100, &percent);
     pDeltaBox = new QCheckBox(tr("Include PDelta"), 0);
@@ -2495,6 +2779,9 @@ void MainWindow::createInputPanel() {
     circularDiameter->setValidator(new QDoubleValidator);
     rectangularHeight->setValidator(new QDoubleValidator);
     rectangularWidth->setValidator(new QDoubleValidator);
+    rectangularDepth->setValidator(new QDoubleValidator);
+    dragCoefficient->setValidator(new QDoubleValidator);
+    windGustSpeed->setValidator(new QDoubleValidator);
 
     //
     // connect signals & slots
@@ -2513,8 +2800,11 @@ void MainWindow::createInputPanel() {
     connect(inStoryFy,SIGNAL(editingFinished()),this, SLOT(on_inStoryFy_editingFinished()));
     connect(inStoryHeight, SIGNAL(editingFinished()), this, SLOT(on_inStoryHeight_editingFinished()));
     connect(inStoryK, SIGNAL(editingFinished()), this, SLOT(on_inStoryK_editingFinished()));
+    connect(dragCoefficient,SIGNAL(editingFinished()),this,SLOT(on_dragCoefficient_editingFinished()));
+    connect(windGustSpeed,SIGNAL(editingFinished()),this,SLOT(on_windGustSpeed_editingFinished()));
 
     connect(eqMotion, SIGNAL(currentIndexChanged(QString)), this, SLOT(on_inEarthquakeMotionSelectionChanged(QString)));
+    connect(expCatagory,SIGNAL(currentIndexChanged(int)), this, SLOT(on_expCatagory_indexChanged()));
 
     connect(theSpreadsheet, SIGNAL(cellClicked(int,int)), this, SLOT(on_theSpreadsheet_cellClicked(int,int)));
     connect(theSpreadsheet, SIGNAL(cellEntered(int,int)), this,SLOT(on_theSpreadsheet_cellClicked(int,int)));
@@ -2586,7 +2876,7 @@ void MainWindow::createOutputPanel() {
    //
 
    // opengl window
-    myEarthquakeResult = new MyGlWidget();
+    myEarthquakeResult = new MyGlWidget(0);
     myEarthquakeResult->setMinimumHeight(300);
     myEarthquakeResult->setMinimumWidth(250);
     myEarthquakeResult->setModel(this);
@@ -2600,7 +2890,7 @@ void MainWindow::createOutputPanel() {
     // wind results similar (need identical so layouts match!)
     //
 
-    myWindResponseResult = new MyGlWidget();
+    myWindResponseResult = new MyGlWidget(1);
     myWindResponseResult->setMinimumHeight(300);
     myWindResponseResult->setMinimumWidth(250);
     myWindResponseResult->setModel(this);
