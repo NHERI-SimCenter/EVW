@@ -1084,8 +1084,8 @@ MainWindow::doWindAnalysis() {
     double windGS = windGustSpeed->text().toDouble();
 
     WindForces forces = GetWindForces(catagory, windGS, dragC, buildingWidth, hfloors, 100.0);
-    std::vector<double> force1 = forces.getFloorForces(0);
-    std::vector<double> force2 = forces.getFloorForces(1);
+    //std::vector<double> force1 = forces.getFloorForces(0);
+    //std::vector<double> force2 = forces.getFloorForces(1);
     double wind_dt = forces.getTimeStep();
     for (int i=1; i<= numFloors; i++) {
         std::vector<double> force = forces.getFloorForces(i-1);
