@@ -15,13 +15,13 @@ class ResponseWidget : public QWidget
 {
     Q_OBJECT
 public:
-    explicit ResponseWidget(MainWindow *main, int mainWindowItem, QString &label, QString &xAxis, QString &yAxis, QWidget *parent = 0);
+    explicit ResponseWidget(MainWindow *main, int mainWindowItem, QString &label, QString &xAxis, QString &yAxis, bool verticalLayout = true, QWidget *parent = 0);
     ~ResponseWidget();
 
     int getItem();
     void setItem(int);
     void setData(QVector<double> &dataE, QVector<double> &dataW, QVector<double> &time, int numSteps, double dt);
-    void setData(QVector<double> &data, QVector<double> &x, int numSteps);
+    void setData(QVector<double> &dataE, QVector<double> &xE, QVector<double> &dataW, QVector<double> &xW, int numSteps);
 
 signals:
 
@@ -40,7 +40,7 @@ private:
 
     QCPGraph *graph;
     QCPItemTracer *groupTracer;
-    QCPCurve *curve;
+    QCPCurve *curve1, *curve2;
 
 };
 

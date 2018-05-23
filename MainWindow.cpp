@@ -469,7 +469,6 @@ void MainWindow::setBasicModel(int numF, double W, double H, double K, double ze
     rectangularWidth->setText((QString::number(width)));
     rectangularDepth->setText((QString::number(depth)));
 
-
     needAnalysis = true;
 
     this->reset();
@@ -624,39 +623,19 @@ void MainWindow::on_expCatagory_indexChanged()
 void MainWindow::on_scaleFactor_editingFinished()
 {
     QString text =  scaleFactorEQ->text();
+
     if (text.isNull())
         return;
 
     double textToDouble = text.toDouble();
+
     if (scaleFactor != textToDouble) {
+
         scaleFactor = textToDouble;
+
         theCurrentRecord->setScaleFactor(scaleFactor);
+
         needAnalysis=true;
-
-        double maxValue=0;
-        for (int i = 0; i < numSteps; ++i) {
-            double value = (*motionData)[i] * scaleFactor;
-            time[i]=i*dt;
-            excitationValues[i]=value;
-            if (fabs(value) > maxValue)
-                maxValue = fabs(value);
-        }
-
-        // reset earthquake plot
-        earthquakePlot->clearGraphs();
-        graph = earthquakePlot->addGraph();
-        earthquakePlot->graph(0)->setData(time, excitationValues);
-        earthquakePlot->xAxis->setRange(0, numSteps*dt);
-        earthquakePlot->yAxis->setRange(-maxValue, maxValue);
-        earthquakePlot->axisRect()->setAutoMargins(QCP::msNone);
-        earthquakePlot->axisRect()->setMargins(QMargins(0,0,0,0));
-
-
-        QString textText("pga: "); textText.append(QString::number(maxValue,'g',2)); textText.append(tr("g"));
-        earthquakeText->setText(textText);
-
-        earthquakePlot->replot();
-        earthquakePlot->update();
 
         this->reset();
     }
@@ -863,7 +842,6 @@ MainWindow::doEarthquakeAnalysis() {
 
     PathSeries *theSeries;
     theSeries = new PathSeries(1, *motionData, dt, g*scaleFactor);
-    opserr << "MotionData:size " << motionData->Size() << "\n";
 
     GroundMotion *theGroundMotion = new GroundMotion(0,0,theSeries);
     LoadPattern *theLoadPattern = new UniformExcitation(*theGroundMotion, 0, 1);
@@ -1254,7 +1232,9 @@ void MainWindow::doAnalysis()
 
         theNodeResponse->setData(nodeResponseValuesEarthquake,nodeResponseValuesWind,time,numSteps,dt);
         theForceTimeResponse->setData(storyForceValuesEarthquake,storyForceValuesWind,time,numSteps,dt);
-        theForceDispResponse->setData(storyForceValuesEarthquake, storyDriftValuesEarthquake,numSteps);
+        theForceDispResponse->setData(storyForceValuesEarthquake, storyDriftValuesEarthquake,
+                                      storyForceValuesWind, storyDriftValuesWind,
+                                      numSteps);
     }
 }
 
@@ -1278,7 +1258,9 @@ MainWindow::setResponse(int floor, int mainItem)
                 storyDriftValuesWind[i]=storyDriftResponsesWind[floor-1][i];
             }
             theForceDispResponse->setData(storyForceValuesEarthquake, storyForceValuesWind,time,numSteps,dt);
-            theForceDispResponse->setData(storyForceValuesEarthquake,storyDriftValuesEarthquake,numSteps);
+            theForceDispResponse->setData(storyForceValuesEarthquake,storyDriftValuesEarthquake,
+                                          storyForceValuesWind,storyDriftValuesWind,
+                                          numSteps);
             if (mainItem == 1)
                 theForceDispResponse->setItem(floor);
             else
@@ -2300,7 +2282,7 @@ void MainWindow::createActions() {
     viewMenu->addAction(forceTimeResponseDock->toggleViewAction());
 
 
-    theForceDispResponse = new ResponseWidget(this, 2, sLabel, dispLabel,forceLabel);
+    theForceDispResponse = new ResponseWidget(this, 2, sLabel, dispLabel,forceLabel, false);
     QDockWidget *forceDriftResponseDock = new QDockWidget(tr("Story Force-Displacement"), this);
     forceDriftResponseDock->setWidget(theForceDispResponse);
     forceDriftResponseDock->setAllowedAreas(Qt::NoDockWidgetArea);
