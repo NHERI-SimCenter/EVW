@@ -48,7 +48,7 @@ UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 #include <QSlider>
 //#include <QtNetwork>
 #include <QWidget>
-#include <QLineEdit>
+#include <QLineEdit>V
 #include <QComboBox>
 #include <QLabel>
 #include <QPushButton>
@@ -279,8 +279,8 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(manager, SIGNAL(finished(QNetworkReply*)),
             this, SLOT(replyFinished(QNetworkReply*)));
 
-    manager->get(QNetworkRequest(QUrl("http://opensees.berkeley.edu/OpenSees/developer/mdof/use.php")));
-    manager->get(QNetworkRequest(QUrl("https://simcenter.designsafe-ci.org/multiple-degrees-freedom-analytics/")));
+    manager->get(QNetworkRequest(QUrl("http://opensees.berkeley.edu/OpenSees/developer/evw/use.php")));
+    //manager->get(QNetworkRequest(QUrl("https://simcenter.designsafe-ci.org/multiple-degrees-freedom-analytics/")));
 }
 
 MainWindow::~MainWindow()
@@ -2014,7 +2014,7 @@ void MainWindow::copyright()
 void MainWindow::version()
 {
     QMessageBox::about(this, tr("Version"),
-                       tr("Version 1.1.1 "));
+                       tr("Version 0.1 "));
 }
 
 void MainWindow::about()
@@ -2053,8 +2053,8 @@ void MainWindow::about()
 
 void MainWindow::submitFeedback()
 {
-   // QDesktopServices::openUrl(QUrl("https://github.com/NHERI-SimCenter/MDOF/issues", QUrl::TolerantMode));
- QDesktopServices::openUrl(QUrl("https://www.designsafe-ci.org/help/new-ticket/", QUrl::TolerantMode));
+  QDesktopServices::openUrl(QUrl("https://github.com/NHERI-SimCenter/EVW/issues", QUrl::TolerantMode));
+ // QDesktopServices::openUrl(QUrl("https://www.designsafe-ci.org/help/new-ticket/", QUrl::TolerantMode));
     }
 
 
