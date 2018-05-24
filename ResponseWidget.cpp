@@ -12,7 +12,7 @@ createTextEntry(QString text,
                 QVBoxLayout *theLayout,
                 int minL=100,
                 int maxL=100,
-        QString *unitText =0);
+                QString *unitText =0);
 
 
 
@@ -22,8 +22,9 @@ ResponseWidget::ResponseWidget(MainWindow *mainWindow,
                                QString &xLabel,
                                QString &yLabel,
                                bool verticalLayout,
+                               bool scale,
                                QWidget *parent)
-    : QWidget(parent), theItem(0), mainWindowItem(mainItem), main(mainWindow)
+    : QWidget(parent), theItem(0), mainWindowItem(mainItem), main(mainWindow), scalesSame(scale)
 {
     // create a main layout
     QVBoxLayout *mainLayout= new QVBoxLayout();
@@ -100,6 +101,8 @@ ResponseWidget::itemEditChanged() {
     int oldItem = theItem;
     QString textItems =  theItemEdit->text();
     theItem = textItems.toInt();
+
+    qDebug() << "ResponeWidget " << theItem << mainWindowItem;
     if (oldItem == theItem)
         return;
 
@@ -114,7 +117,6 @@ ResponseWidget::itemEditChanged() {
 void
 ResponseWidget::setData(QVector<double> &data1, QVector<double> &data2, QVector<double> &time, int numSteps, double dt) {
 
-
     double minValue = 0;
     double maxValue = 0;
     for (int i=0; i<numSteps; i++) {
@@ -125,12 +127,14 @@ ResponseWidget::setData(QVector<double> &data1, QVector<double> &data2, QVector<
             maxValue = value;
     }
 
-    for (int i=0; i<numSteps; i++) {
-        double value = data2.at(i);
-        if (value < minValue)
-            minValue = value;
-        if (value > maxValue)
-            maxValue = value;
+    if (scalesSame == true) {
+        for (int i=0; i<numSteps; i++) {
+            double value = data2.at(i);
+            if (value < minValue)
+                minValue = value;
+            if (value > maxValue)
+                maxValue = value;
+        }
     }
 
     thePlot1->clearGraphs();
@@ -141,6 +145,20 @@ ResponseWidget::setData(QVector<double> &data1, QVector<double> &data2, QVector<
     thePlot1->yAxis->setRange(minValue, maxValue);
     thePlot1->axisRect()->setMargins(QMargins(0,0,0,0));
 
+
+    if (scalesSame == false) {
+        qDebug() << mainWindowItem << scalesSame;
+        minValue = 0;
+        maxValue = 0;
+
+        for (int i=0; i<numSteps; i++) {
+            double value = data2.at(i);
+            if (value < minValue)
+                minValue = value;
+            if (value > maxValue)
+                maxValue = value;
+        }
+    }
 
     thePlot2->clearGraphs();
     graph = thePlot2->addGraph();
@@ -174,7 +192,7 @@ void
 ResponseWidget::setData(QVector<double> &data1, QVector<double> &x1,QVector<double> &data2, QVector<double> &x2, int numSteps) {
 
    thePlot1->clearGraphs();
-    //thePlot->clearItems();
+   //thePlot->clearItems();
    thePlot1->clearPlottables();
    curve1 = new QCPCurve(thePlot1->xAxis, thePlot1->yAxis);
 

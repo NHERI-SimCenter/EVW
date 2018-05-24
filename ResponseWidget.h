@@ -15,7 +15,7 @@ class ResponseWidget : public QWidget
 {
     Q_OBJECT
 public:
-    explicit ResponseWidget(MainWindow *main, int mainWindowItem, QString &label, QString &xAxis, QString &yAxis, bool verticalLayout = true, QWidget *parent = 0);
+    explicit ResponseWidget(MainWindow *main, int mainWindowItem, QString &label, QString &xAxis, QString &yAxis, bool verticalLayout = true, bool scalesSame = true, QWidget *parent = 0);
     ~ResponseWidget();
 
     int getItem();
@@ -41,6 +41,8 @@ private:
     QCPGraph *graph;
     QCPItemTracer *groupTracer;
     QCPCurve *curve1, *curve2;
+
+    bool scalesSame;
 
 };
 

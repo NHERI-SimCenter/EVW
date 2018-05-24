@@ -264,9 +264,6 @@ private:
     QStringList headings;
     QList<int> dataTypes;
     
-    ResponseWidget *theNodeResponse;
-    ResponseWidget *theForceTimeResponse;
-    ResponseWidget *theForceDispResponse;
 
     Ui::MainWindow *ui;
 
@@ -312,15 +309,37 @@ private:
     bool needAnalysis;
     bool  analysisFailed;
 
-    // earthquake response
+
+    // data stored from earthquake response
     double **dispResponsesEarthquake;
     double **storyForceResponsesEarthquake;
     double **storyDriftResponsesEarthquake;
+    double **floorForcesEarthquake;
 
-    // wind response
+    // data stored from wind response
     double **dispResponsesWind;
     double **storyForceResponsesWind;
     double **storyDriftResponsesWind;
+    double **floorForcesWind;
+
+    // data for response widgets
+    QVector<double> time;
+    QVector<double> excitationValues;
+    QVector<double> nodeResponseValuesEarthquake;
+    QVector<double> storyForceValuesEarthquake;
+    QVector<double> storyDriftValuesEarthquake;
+    QVector<double> nodeResponseValuesWind;
+    QVector<double> storyForceValuesWind;
+    QVector<double> storyDriftValuesWind;
+    QVector<double> floorForceValuesWind;
+    QVector<double> floorForceValueEarthquake;
+
+
+    // the response widgets to display the results
+    ResponseWidget *theNodeResponse;
+    ResponseWidget *theForceTimeResponse;
+    ResponseWidget *theForceDispResponse;
+    ResponseWidget *theAppliedForcesResponse;
 
     double maxDisp;
     int    currentStep;
@@ -333,19 +352,11 @@ private:
 
     bool updatingPropertiesTable;
 
-    // for current display
-    QVector<double> time;
-    QVector<double> excitationValues;
-    QVector<double> nodeResponseValuesEarthquake;
-    QVector<double> storyForceValuesEarthquake;
-    QVector<double> storyDriftValuesEarthquake;
-    QVector<double> nodeResponseValuesWind;
-    QVector<double> storyForceValuesWind;
-    QVector<double> storyDriftValuesWind;
 
     QCPGraph *graph;
     QCPItemTracer *groupTracer;
 
+    // map to hold earthquake records
     std::map <QString, EarthquakeRecord *> records;
     EarthquakeRecord *theCurrentRecord;
 

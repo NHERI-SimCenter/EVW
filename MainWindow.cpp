@@ -205,8 +205,8 @@ MainWindow::MainWindow(QWidget *parent) :
     weights(0), k(0), fy(0), b(0), dampRatios(0), floorHeights(0), storyHeights(0),
     dampingRatio(0.02), g(386.4), dt(0), gMotion(0),
     includePDelta(true), needAnalysis(true), analysisFailed(false), motionData(0),
-    dispResponsesEarthquake(0), storyForceResponsesEarthquake(0), storyDriftResponsesEarthquake(0), 
-    dispResponsesWind(0), storyForceResponsesWind(0), storyDriftResponsesWind(0), 
+    dispResponsesEarthquake(0), storyForceResponsesEarthquake(0), storyDriftResponsesEarthquake(0), floorForcesEarthquake(0),
+    dispResponsesWind(0), storyForceResponsesWind(0), storyDriftResponsesWind(0), floorForcesWind(0),
     maxDisp(1),
     movingSlider(false), fMinSelected(-1),fMaxSelected(-1), sMinSelected(-1),sMaxSelected(-1),
     time(1561),excitationValues(1561), graph(0), groupTracer(0),floorSelected(-1),storySelected(-1)
@@ -375,6 +375,11 @@ void MainWindow::setBasicModel(int numF, double W, double H, double K, double ze
             delete [] storyDriftResponsesEarthquake;
         }
 
+        if (floorForcesEarthquake != 0) {
+            for (int j=0; j<numFloors; j++)
+                delete [] floorForcesEarthquake[j];
+            delete [] floorForcesEarthquake;
+        }
         if (dispResponsesWind != 0) {
             for (int j=0; j<numFloors+1; j++)
                 delete [] dispResponsesWind[j];
@@ -390,6 +395,12 @@ void MainWindow::setBasicModel(int numF, double W, double H, double K, double ze
                 delete [] storyDriftResponsesWind[j];
             delete [] storyDriftResponsesWind;
         }
+        if (floorForcesWind != 0) {
+            for (int j=0; j<numFloors; j++)
+                delete [] floorForcesWind[j];
+            delete [] floorForcesWind;
+        }
+
 
         dispResponsesEarthquake = 0;
         dispResponsesWind = 0;
@@ -397,6 +408,8 @@ void MainWindow::setBasicModel(int numF, double W, double H, double K, double ze
         storyDriftResponsesWind = 0;
         storyForceResponsesEarthquake = 0;
         storyForceResponsesWind = 0;
+        floorForcesEarthquake = 0;
+        floorForcesWind = 0;
 
         // if invalid numFloor, return
         if (numF <= 0) {
@@ -476,6 +489,7 @@ void MainWindow::setBasicModel(int numF, double W, double H, double K, double ze
     theNodeResponse->setItem(numF);
     theForceDispResponse->setItem(1);
     theForceTimeResponse->setItem(1);
+    theAppliedForcesResponse->setItem(numF);
 
     floorMassFrame->setVisible(false);
     storyPropertiesFrame->setVisible(false);
@@ -963,7 +977,8 @@ MainWindow::doEarthquakeAnalysis() {
                 maxDisp = fabs(nodeDisp);
 
             if (j < numFloors) {
-
+                const Vector &load = theNodes[j+1]->getUnbalancedLoad();
+                floorForcesEarthquake[j][i] = load(0);
                 storyForceResponsesEarthquake[j][i]= theElements[j]->getForce();
                 storyDriftResponsesEarthquake[j][i] = theElements[j]->getDrift();
             }
@@ -1176,9 +1191,11 @@ MainWindow::doWindAnalysis() {
                 maxWindDisp = fabs(nodeDisp);
 
             if (j < numFloors) {
-
+                LoadPattern *theLoadPattern = theDomain.getLoadPattern(j+1);
+                double loadFactor = theLoadPattern->getLoadFactor();
                 storyForceResponsesWind[j][i]= theElements[j]->getForce();
                 storyDriftResponsesWind[j][i] = theElements[j]->getDrift();
+                floorForcesWind[j][i] = loadFactor;
             }
         }
     }
@@ -1211,6 +1228,7 @@ void MainWindow::doAnalysis()
         analysisFailed = false;
         int nodeResponseFloor = theNodeResponse->getItem();
         int storyForceTime = theForceTimeResponse->getItem() -1;
+        int appliedForceFloor = theAppliedForcesResponse->getItem() -1;
         //int storyForceDrift = theForceDispResponse->getItem() -1;
 
         nodeResponseValuesEarthquake.resize(numSteps);
@@ -1219,6 +1237,8 @@ void MainWindow::doAnalysis()
         nodeResponseValuesWind.resize(numSteps);
         storyForceValuesWind.resize(numSteps);
         storyDriftValuesWind.resize(numSteps);
+        floorForceValueEarthquake.resize(numSteps);
+        floorForceValuesWind.resize(numSteps);
 
 
         for (int i = 0; i < numSteps; ++i) {
@@ -1228,6 +1248,8 @@ void MainWindow::doAnalysis()
             nodeResponseValuesWind[i]=dispResponsesWind[nodeResponseFloor][i];
             storyForceValuesWind[i]=storyForceResponsesWind[storyForceTime][i];
             storyDriftValuesWind[i]=storyDriftResponsesWind[storyForceTime][i];
+            floorForceValueEarthquake[i]=floorForcesEarthquake[appliedForceFloor][i];
+            floorForceValuesWind[i]=floorForcesWind[appliedForceFloor][i];
         }
 
         theNodeResponse->setData(nodeResponseValuesEarthquake,nodeResponseValuesWind,time,numSteps,dt);
@@ -1235,12 +1257,14 @@ void MainWindow::doAnalysis()
         theForceDispResponse->setData(storyForceValuesEarthquake, storyDriftValuesEarthquake,
                                       storyForceValuesWind, storyDriftValuesWind,
                                       numSteps);
+        theAppliedForcesResponse->setData(floorForceValueEarthquake, floorForceValuesWind, time, numSteps, dt);
     }
 }
 
 void
 MainWindow::setResponse(int floor, int mainItem)
 {
+    // node disp response
     if (mainItem == 0) {
         if (floor > 0 && floor <= numFloors) {
             for (int i = 0; i < numSteps; ++i) {
@@ -1249,7 +1273,10 @@ MainWindow::setResponse(int floor, int mainItem)
             }
             theNodeResponse->setData(nodeResponseValuesEarthquake,nodeResponseValuesWind, time,numSteps,dt);
         }
-    } else if (mainItem == 1 || mainItem == 2) {
+    }
+
+    // changing the shear force response
+    else if (mainItem == 1 || mainItem == 2) {
         if (floor > 0 && floor <= numFloors) {
             for (int i = 0; i < numSteps; ++i) {
                 storyForceValuesEarthquake[i]=storyForceResponsesEarthquake[floor-1][i];
@@ -1267,7 +1294,17 @@ MainWindow::setResponse(int floor, int mainItem)
                 theForceTimeResponse->setItem(floor);
         }
     }
+
+    // changing applied story forces
+    else if (mainItem == 3) {
+        for (int i = 0; i < numSteps; ++i) {
+            floorForceValueEarthquake[i] = floorForcesEarthquake[floor-1][i];
+            floorForceValuesWind[i] = floorForcesWind[floor-1][i];
+        }
+        theAppliedForcesResponse->setData(floorForceValueEarthquake, floorForceValuesWind, time, numSteps, dt);
+    }
 }
+
 
 void MainWindow::reset() {
 
@@ -1564,7 +1601,6 @@ void MainWindow::setData(int nStep, double deltaT, Vector *data) {
     excitationValues.resize(numSteps);
     dt = deltaT;
 
-   qDebug() << "  MainWindow::setData()" << numFloors << " " << nStep << " " << deltaT << numSteps;
     double maxValue = 0;
 
     time.resize(numSteps);
@@ -1584,16 +1620,23 @@ void MainWindow::setData(int nStep, double deltaT, Vector *data) {
             delete [] storyDriftResponsesEarthquake[j];
         delete [] storyDriftResponsesEarthquake;
     }
+    if (floorForcesEarthquake != 0) {
+        for (int j=0; j<numFloors; j++)
+            delete [] floorForcesEarthquake[j];
+        delete [] floorForcesEarthquake;
+    }
 
     dispResponsesEarthquake = new double *[numFloors+1];
     storyForceResponsesEarthquake = new double *[numFloors];
     storyDriftResponsesEarthquake = new double *[numFloors];
+    floorForcesEarthquake = new double *[numFloors];
 
     for (int i=0; i<numFloors+1; i++) {
         dispResponsesEarthquake[i] = new double[numSteps+1]; // +1 as doing 0 at start
         if (i<numFloors) {
             storyForceResponsesEarthquake[i] = new double[numSteps+1];
             storyDriftResponsesEarthquake[i] = new double[numSteps+1];
+            floorForcesEarthquake[i] = new double[numSteps+1];
         }
     }
 
@@ -1612,16 +1655,23 @@ void MainWindow::setData(int nStep, double deltaT, Vector *data) {
             delete [] storyDriftResponsesWind[j];
         delete [] storyDriftResponsesWind;
     }
+    if (floorForcesWind != 0) {
+        for (int j=0; j<numFloors; j++)
+            delete [] floorForcesWind[j];
+        delete [] floorForcesWind;
+    }
 
     dispResponsesWind = new double *[numFloors+1];
     storyForceResponsesWind = new double *[numFloors];
     storyDriftResponsesWind = new double *[numFloors];
+    floorForcesWind = new double *[numFloors];
 
     for (int i=0; i<numFloors+1; i++) {
         dispResponsesWind[i] = new double[numSteps+1]; // +1 as doing 0 at start
         if (i<numFloors) {
             storyForceResponsesWind[i] = new double[numSteps+1];
             storyDriftResponsesWind[i] = new double[numSteps+1];
+            floorForcesWind[i] = new double[numSteps+1];
         }
     }
 
@@ -2262,7 +2312,8 @@ void MainWindow::createActions() {
     //QString dLabel("Total Displacement (in)");
     QString fLabel("Floor");
     QString sLabel("Story");
-    QString forceLabel("Shear Force (kip)");
+    QString shearForceLabel("Shear Force (kip)");
+    QString appliedForceLabel("Applied Force (kip)");
     QString dispLabel("Displacement (inch)");
 
     theNodeResponse = new ResponseWidget(this, 0, fLabel, tLabel, dLabel);
@@ -2273,7 +2324,7 @@ void MainWindow::createActions() {
     nodeResponseDock->close();
     viewMenu->addAction(nodeResponseDock->toggleViewAction());
 
-    theForceTimeResponse = new ResponseWidget(this, 1, sLabel, tLabel, forceLabel);
+    theForceTimeResponse = new ResponseWidget(this, 1, sLabel, tLabel, shearForceLabel);
     QDockWidget *forceTimeResponseDock = new QDockWidget(tr("Story Force History"), this);
     forceTimeResponseDock->setWidget(theForceTimeResponse);
     forceTimeResponseDock->setAllowedAreas(Qt::NoDockWidgetArea);
@@ -2282,13 +2333,21 @@ void MainWindow::createActions() {
     viewMenu->addAction(forceTimeResponseDock->toggleViewAction());
 
 
-    theForceDispResponse = new ResponseWidget(this, 2, sLabel, dispLabel,forceLabel, false);
+    theForceDispResponse = new ResponseWidget(this, 2, sLabel, dispLabel,shearForceLabel, false);
     QDockWidget *forceDriftResponseDock = new QDockWidget(tr("Story Force-Displacement"), this);
     forceDriftResponseDock->setWidget(theForceDispResponse);
     forceDriftResponseDock->setAllowedAreas(Qt::NoDockWidgetArea);
     forceDriftResponseDock->setFloating(true);
     forceDriftResponseDock->close();
     viewMenu->addAction(forceDriftResponseDock->toggleViewAction());
+
+    theAppliedForcesResponse = new ResponseWidget(this, 3, fLabel, tLabel,appliedForceLabel, true, false);
+    QDockWidget *appliedForcesResponseDock = new QDockWidget(tr("Applied Floor Forces"), this);
+    appliedForcesResponseDock->setWidget(theAppliedForcesResponse);
+    appliedForcesResponseDock->setAllowedAreas(Qt::NoDockWidgetArea);
+    appliedForcesResponseDock->setFloating(true);
+    appliedForcesResponseDock->close();
+    viewMenu->addAction(appliedForcesResponseDock->toggleViewAction());
 
 
     QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));
@@ -2298,10 +2357,8 @@ void MainWindow::createActions() {
     QAction *aboutAct = helpMenu->addAction(tr("&Version"), this, &MainWindow::version);
     //aboutAct->setStatusTip(tr("Show the application's About box"));
 
-
     QAction *copyrightAct = helpMenu->addAction(tr("&License"), this, &MainWindow::copyright);
     //aboutAct->setStatusTip(tr("Show the application's About box"));
-
 }
 
 void MainWindow::on_shapeChange(int rowSelected) {
@@ -2890,6 +2947,7 @@ void MainWindow::createOutputPanel() {
 
    /* *************************************************************
    // add some buttons to give user control over what is displayed
+   // putting in main menu view dropdown instead .. review later
    QHBoxLayout *pushButtonsLayout = new QHBoxLayout();
    QPushButton *dispButton = new QPushButton("Displacement");
    QPushButton *driftButton = new QPushButton("Interstory Drift");
