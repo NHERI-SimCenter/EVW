@@ -2020,8 +2020,8 @@ void MainWindow::version()
 void MainWindow::about()
 {
     QString textAbout = "\
-            This is the Multiple Degree of Freedom (MDOF) tool.  It allows the user to explore the effects of\
-            different building parameters and ground motions on the time history response of a building. <p> \
+            This is the Earthquake versus Wind (EvW) tool.  It allows the user to compare the response of\
+            a building to both earthquake and wind loading.  <p> \
             The building is represented by a shear building model: an idealization of a structure in which the mass \
             is lumped at the floor levels and the beams are assumed infinitely stiff in flexure and axially inextensible,\
             and the columns are axially inextensible.  The user inputs the floor weights and story properties (stiffness, \
@@ -2031,12 +2031,13 @@ void MainWindow::about()
             <p>\
             All units are in sec, kips, inches.\
             <p>\
-            For this application the equations of motions are set up using the uniform excitation approach, \
+            For the arthquake loading he equations of motions are set up using the uniform excitation approach, \
             i.e. MA + CV + KU = -MAg. These equations are solved using the Newmark constant acceleration method and \
             Newton-Raphson solution algorithm.  <p>\
             Additional motions can be added by user. The units for these additional motions must be in g. An\
             example is provided at https://github.com/NHERI-SimCenter/MDOF/blob/master/example/elCentro.json\
             <p>\
+            For the Wind oading the forces at each floor level are determined by MAGIC!!<p>\
             This tool does not stop you the user from inputting values that will cause the analysis to fail. \
             If the analysis fails, a warning message will appear and the tool will not revert back to a working \
             set of parameters.\
