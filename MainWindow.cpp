@@ -634,6 +634,16 @@ void MainWindow::on_expCatagory_indexChanged()
 }
 
 
+void MainWindow::on_Seed_editingFinished()
+{
+    QString text =  seed->text();
+    if (text.isNull())
+        return;
+
+    needAnalysis=true;
+    this->reset();
+}
+
 void MainWindow::on_scaleFactor_editingFinished()
 {
     QString text =  scaleFactorEQ->text();
@@ -1063,20 +1073,20 @@ MainWindow::doWindAnalysis() {
         hfloors.at(i) = storyHeights[i];
     }
 
-    Wind::ExposureCategory catagory = Wind::ExposureCategory::A;
+    Wind::ExposureCategory catagory = Wind::ExposureCategory::B;
     int catIndex = expCatagory->currentIndex();
     if (catIndex == 1)
-        catagory = Wind::ExposureCategory::B;
-    else if (catIndex == 2)
         catagory = Wind::ExposureCategory::C;
-    else if (catIndex == 3)
+    else if (catIndex == 2)
         catagory = Wind::ExposureCategory::D;
+    else if (catIndex == 3)
 
     double width = buildingWidth;
     double dragC = dragCoefficient->text().toDouble();
     double windGS = windGustSpeed->text().toDouble();
+    double seedValue = seed->text().toDouble();
 
-    WindForces forces = GetWindForces(catagory, windGS, dragC, buildingWidth, hfloors, 100.0);
+    WindForces forces = GetWindForces(catagory, windGS, dragC, buildingWidth, hfloors, seedValue);
     //std::vector<double> force1 = forces.getFloorForces(0);
     //std::vector<double> force2 = forces.getFloorForces(1);
     double wind_dt = forces.getTimeStep();
@@ -2023,7 +2033,7 @@ void MainWindow::about()
             This is the Earthquake versus Wind (EvW) tool.  It allows the user to compare the response of\
             a building to both earthquake and wind loading.  <p> \
             The building is represented by a shear building model: an idealization of a structure in which the mass \
-            is lumped at the floor levels and the beams are assumed infinitely stiff in flexure and axially inextensible,\
+            is lumped at the floor levels, the beams are assumed infinitely stiff in flexure and axially inextensible,\
             and the columns are axially inextensible.  The user inputs the floor weights and story properties (stiffness, \
                                                                                                                yield strength, hardening ratio) of the stories, and a damping ratio for the structure. Individual floor and \
             story values are possible by user selecting an an appropriate area in the graphic around area of interest.\
@@ -2363,6 +2373,14 @@ void MainWindow::createActions() {
 }
 
 void MainWindow::on_shapeChange(int rowSelected) {
+    if (rowSelected == 0)
+        dragCoefficient->setText("1.3");
+    else if (rowSelected == 1)
+        dragCoefficient->setText("1.47");
+    else if (rowSelected == 1)
+        dragCoefficient->setText("1.15");
+
+
     shapesWidget->setCurrentIndex(rowSelected);
 }
 
@@ -2466,11 +2484,11 @@ void MainWindow::createInputPanel() {
     QGridLayout *windBoxLayout = new QGridLayout;
 
     QLabel *categoryLabel = new QLabel();
-    categoryLabel->setText(tr("Exposure Category"));
+    categoryLabel->setText(tr("ASCE 7 Exposure Category"));
     windBoxLayout->addWidget(categoryLabel,0,0);
 
     expCatagory = new QComboBox();
-    expCatagory->addItem("A");
+   // expCatagory->addItem("A");
     expCatagory->addItem("B");
     expCatagory->addItem("C");
     expCatagory->addItem("D");
@@ -2478,13 +2496,19 @@ void MainWindow::createInputPanel() {
 
     // gust speed
     QLabel *gustLabel = new QLabel();
-    gustLabel->setText(tr("Gust Wind Speed"));
+    gustLabel->setText(tr("Gust Wind Speed (mph)"));
     windBoxLayout->addWidget(gustLabel,1,0);
 
     windGustSpeed = new QLineEdit();
     windGustSpeed->setText("97.3");
     windBoxLayout->addWidget(windGustSpeed,1,1);
 
+    /*
+    QLabel *mphLabel = new QLabel();
+    mphLabel->setText(tr("mph"));
+     windBoxLayout->addWidget(mphLabel,1,2);
+*/
+    /*
     QLabel *schemeLabel = new QLabel();
     schemeLabel->setText(tr("Simulation Scheme"));
     windBoxLayout->addWidget(schemeLabel,2,0);
@@ -2495,6 +2519,15 @@ void MainWindow::createInputPanel() {
     simScheme->addItem("Ergodic Spectral");
     simScheme->addItem("Conventional Spectral");
     windBoxLayout->addWidget(simScheme,2,1);
+*/
+    // gust speed
+    QLabel *seedLabel = new QLabel();
+    seedLabel->setText(tr("seed"));
+    windBoxLayout->addWidget(seedLabel,2,0);
+
+    seed = new QLineEdit();
+    seed->setText("100");
+    windBoxLayout->addWidget(seed,2,1);
 
     windBox->setLayout(windBoxLayout);
 
@@ -2822,6 +2855,7 @@ void MainWindow::createInputPanel() {
     rectangularDepth->setValidator(new QDoubleValidator);
     dragCoefficient->setValidator(new QDoubleValidator);
     windGustSpeed->setValidator(new QDoubleValidator);
+    seed->setValidator(new QDoubleValidator);
 
     //
     // connect signals & slots
@@ -2842,6 +2876,7 @@ void MainWindow::createInputPanel() {
     connect(inStoryK, SIGNAL(editingFinished()), this, SLOT(on_inStoryK_editingFinished()));
     connect(dragCoefficient,SIGNAL(editingFinished()),this,SLOT(on_dragCoefficient_editingFinished()));
     connect(windGustSpeed,SIGNAL(editingFinished()),this,SLOT(on_windGustSpeed_editingFinished()));
+    connect(seed,SIGNAL(editingFinished()),this,SLOT(on_Seed_editingFinished()));
 
     connect(eqMotion, SIGNAL(currentIndexChanged(QString)), this, SLOT(on_inEarthquakeMotionSelectionChanged(QString)));
     connect(expCatagory,SIGNAL(currentIndexChanged(int)), this, SLOT(on_expCatagory_indexChanged()));

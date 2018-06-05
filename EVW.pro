@@ -13,7 +13,7 @@ TEMPLATE = app
 
 include(OPS_includes.pro)
 include(Wind_includes.pro)
-include(../widgets/Common/Common.pri)
+include(../SimCenterCommon/Common/Common.pri)
 
 VERSION=1.1.1
 DEFINES += APP_VERSION=\\\"$$VERSION\\\"

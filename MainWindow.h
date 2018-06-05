@@ -121,8 +121,8 @@ private slots:
     void on_inStoryB_editingFinished();
     void on_dragCoefficient_editingFinished();
     void on_windGustSpeed_editingFinished();
+    void on_Seed_editingFinished();
     void on_expCatagory_indexChanged();
-
 
 
     // for earthquake motion combo box
@@ -218,6 +218,7 @@ private:
     QLineEdit *inStoryHeight;
 
     QLineEdit *windGustSpeed;
+    QLineEdit *seed;
 
     QLineEdit *squareHeight;
     QLineEdit *squareWidth;
