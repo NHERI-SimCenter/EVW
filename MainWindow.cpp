@@ -343,7 +343,10 @@ void MainWindow::draw(MyGlWidget *theGL, int loadingType)
     theGL->drawLine(0, -maxDisp, 0.0, maxDisp, 0.0, 1.0, 0., 0., 0.);
 
     currentTime->setText(QString().setNum(currentStep*dt,'f',2));
-    currentDisp->setText(QString().setNum(theDispResponse[numFloors][currentStep],'f',2));
+    if (loadingType == 0)
+           currentDispEarthquake->setText(QString().setNum(theDispResponse[numFloors][currentStep],'f',2));
+    else
+        currentDispWind->setText(QString().setNum(theDispResponse[numFloors][currentStep],'f',2));
     theGL->drawBuffers();
 
 }
@@ -2971,6 +2974,7 @@ void MainWindow::createOutputPanel() {
     earthquakeBoxLayout->addWidget(myEarthquakeResult, 1.0);
 
     // entries for max responses
+    currentDispEarthquake = createLabelEntry(tr("Current Disp"), earthquakeBoxLayout, 100, 100, &inch);
     maxEarthquakeDispLabel = createLabelEntry(tr("Max Disp"), earthquakeBoxLayout, 100,100,&inch);
     earthquakeBox->setLayout(earthquakeBoxLayout);
 
@@ -2983,6 +2987,7 @@ void MainWindow::createOutputPanel() {
     myWindResponseResult->setMinimumWidth(250);
     myWindResponseResult->setModel(this);
     windBoxLayout->addWidget(myWindResponseResult, 1.0);
+    currentDispWind = createLabelEntry(tr("Current Disp"), windBoxLayout, 100, 100, &inch);
     maxWindDispLabel = createLabelEntry(tr("Max Disp"), windBoxLayout, 100,100,&inch);
     windBox->setLayout(windBoxLayout);
 
@@ -3018,7 +3023,7 @@ void MainWindow::createOutputPanel() {
     outputDataFrame->setObjectName(QString::fromUtf8("outputDataFrame"));
     QVBoxLayout *outputDataLayout = new QVBoxLayout();
     currentTime = createLabelEntry(tr("Current Time"), outputDataLayout, 100,100, &sec);
-    currentDisp = createLabelEntry(tr("Current Roof Disp"), outputDataLayout, 100,100,  &inch);
+//    currentDisp = createLabelEntry(tr("Current Roof Disp"), outputDataLayout, 100,100,  &inch);
     outputDataFrame->setLayout(outputDataLayout);
     outputDataFrame->setLineWidth(1);
     outputDataFrame->setFrameShape(QFrame::Box);

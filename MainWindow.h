@@ -257,7 +257,8 @@ private:
     QComboBox *periods;
 
     QLabel *currentTime;
-    QLabel *currentDisp;
+    QLabel *currentDispEarthquake;
+     QLabel *currentDispWind;
     QLabel *currentPeriod;
     QLabel *maxEarthquakeDispLabel;
     QLabel *maxWindDispLabel;
