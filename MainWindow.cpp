@@ -2376,9 +2376,9 @@ void MainWindow::on_shapeChange(int rowSelected) {
     if (rowSelected == 0)
         dragCoefficient->setText("1.3");
     else if (rowSelected == 1)
-        dragCoefficient->setText("1.47");
-    else if (rowSelected == 1)
-        dragCoefficient->setText("1.15");
+        dragCoefficient->setText("1.3");
+    else if (rowSelected == 2)
+        dragCoefficient->setText("0.8");
 
 
     shapesWidget->setCurrentIndex(rowSelected);
@@ -2740,7 +2740,7 @@ void MainWindow::createInputPanel() {
    //   - drag coefficient, story stiffness, modal damping ratio and a checkbox for inclusion of PDelta
    //
     dragCoefficient = createTextEntry(tr("Drag Coefficient"), mainPropertiesLayout, 100, 100, &blank);
-    dragCoefficient->setText("1.0");
+    dragCoefficient->setText("1.3");
 
     inK = createTextEntry(tr("Story Stiffness"), mainPropertiesLayout, 100, 100, &kipsInch);
     inDamping = createTextEntry(tr("Damping Ratio"), mainPropertiesLayout, 100, 100, &percent);
@@ -2897,11 +2897,21 @@ void MainWindow::createOutputPanel() {
 
     // place everything in one Widget, a QGroupBox to get 1 unit with heading
     // using a vertical layout for the widget so one after another vertically
+    //  in this Box we will place 2 other boxes, one for periods and the other displacements
 
     QGroupBox *outputBox = new QGroupBox("Output");
     QVBoxLayout *outputBoxLayout = new QVBoxLayout;
 
-    // will place earthquake results in another group box
+    QGroupBox *periods = new QGroupBox("Periods");
+    QVBoxLayout *periodsLayout = new QVBoxLayout;
+    periods->setLayout(periodsLayout);
+
+    QGroupBox *displacements = new QGroupBox("Displacements");
+    QVBoxLayout *displacementsLayout = new QVBoxLayout;
+    displacements->setLayout(displacementsLayout);
+
+    // will place earthquake display in another
+
     QGroupBox *earthquakeBox = new QGroupBox("Earthquake");
     QVBoxLayout *earthquakeBoxLayout = new QVBoxLayout;
 
@@ -2917,7 +2927,7 @@ void MainWindow::createOutputPanel() {
     QString sec(tr("sec"));
 
     //
-    // create combobox for period selection
+    // create GroupBox for periods and combobox for period selection
     //
 
     QHBoxLayout *periodLayout = new QHBoxLayout();
@@ -2944,7 +2954,10 @@ void MainWindow::createOutputPanel() {
     periodLayout->setSpacing(10);
     periodLayout->setMargin(0);
 
-   outputBoxLayout->addLayout(periodLayout);
+    periodsLayout->addLayout(periodLayout);
+    outputBoxLayout->addWidget(periods);
+
+ //   outputBoxLayout->addWidget(periods);
 
    //
    // earthquake results
@@ -2976,7 +2989,7 @@ void MainWindow::createOutputPanel() {
     responsesLayout->addWidget(earthquakeBox);
     responsesLayout->addWidget(windBox);
 
-    outputBoxLayout->addLayout(responsesLayout,1.0);
+    displacementsLayout->addLayout(responsesLayout,1.0);
 
    outputBox->setLayout(outputBoxLayout);
    outputLayout->addWidget(outputBox);
@@ -2998,7 +3011,7 @@ void MainWindow::createOutputPanel() {
    ***************************************************************** */
 
    slider=new QSlider(Qt::Horizontal);
-    outputBoxLayout->addWidget(slider);
+    displacementsLayout->addWidget(slider);
 
     // output frame to show current time
     QFrame *outputDataFrame = new QFrame();
@@ -3012,7 +3025,10 @@ void MainWindow::createOutputPanel() {
     outputDataFrame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 
 
-    outputBoxLayout->addWidget(outputDataFrame);
+    //outputBoxLayout->addWidget(outputDataFrame);
+    displacementsLayout->addWidget(outputDataFrame);
+
+     outputBoxLayout->addWidget(displacements, 1.0);
 
     // add layout to mainLayout and to largeLayout
     mainLayout->addLayout(outputLayout,1.0);
