@@ -1290,14 +1290,18 @@ MainWindow::setResponse(int floor, int mainItem)
 
     // changing the shear force response
     else if (mainItem == 1 || mainItem == 2) {
+        if (floor < 1) floor = 1;
+        if (floor > numFloors) floor = numFloors;
         if (floor > 0 && floor <= numFloors) {
             for (int i = 0; i < numSteps; ++i) {
+
                 storyForceValuesEarthquake[i]=storyForceResponsesEarthquake[floor-1][i];
                 storyDriftValuesEarthquake[i]=storyDriftResponsesEarthquake[floor-1][i];
                 storyForceValuesWind[i]=storyForceResponsesWind[floor-1][i];
                 storyDriftValuesWind[i]=storyDriftResponsesWind[floor-1][i];
             }
-            theForceDispResponse->setData(storyForceValuesEarthquake, storyForceValuesWind,time,numSteps,dt);
+            theForceTimeResponse->setData(storyForceValuesEarthquake,storyForceValuesWind,time,numSteps,dt);
+           // theForceDispResponse->setData(storyForceValuesEarthquake, storyForceValuesWind,time,numSteps,dt);
             theForceDispResponse->setData(storyForceValuesEarthquake,storyDriftValuesEarthquake,
                                           storyForceValuesWind,storyDriftValuesWind,
                                           numSteps);

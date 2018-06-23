@@ -7,13 +7,53 @@
 
 #include <qcustomplot.h>
 
+
+static QLineEdit *
+createTextEntry(QString text,
+                QVBoxLayout *theLayout,
+                int minL=100,
+                int maxL=100,
+                QString *unitText =0)
+{
+    QHBoxLayout *entryLayout = new QHBoxLayout();
+    QLabel *entryLabel = new QLabel();
+    entryLabel->setText(text);
+
+    QLineEdit *res = new QLineEdit();
+    res->setMinimumWidth(minL);
+    res->setMaximumWidth(maxL);
+    res->setValidator(new QDoubleValidator);
+
+    entryLayout->addWidget(entryLabel);
+
+    entryLayout->addWidget(res);
+    entryLayout->addStretch();
+
+    if (unitText != 0) {
+        QLabel *unitLabel = new QLabel();
+        unitLabel->setText(*unitText);
+        unitLabel->setMinimumWidth(40);
+        unitLabel->setMaximumWidth(50);
+        entryLayout->addWidget(unitLabel);
+
+    }
+
+    entryLayout->setSpacing(10);
+    entryLayout->setMargin(0);
+
+    theLayout->addLayout(entryLayout);
+
+
+    return res;
+}
+/* ******************* commenting out external procedure as don't like strecth
 extern QLineEdit *
 createTextEntry(QString text,
                 QVBoxLayout *theLayout,
                 int minL=100,
                 int maxL=100,
                 QString *unitText =0);
-
+******************************************************** */
 
 
 ResponseWidget::ResponseWidget(MainWindow *mainWindow,
@@ -53,7 +93,6 @@ ResponseWidget::ResponseWidget(MainWindow *mainWindow,
     } else {
         height = 0.25*rec.height();
         width = 0.25*rec.width();
-
     }
 
     thePlot1->setMinimumWidth(width);
