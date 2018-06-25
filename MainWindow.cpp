@@ -226,7 +226,6 @@ MainWindow::MainWindow(QWidget *parent) :
     createOutputPanel();
     createFooterBox();
 
-
     // create a widget in which to show everything //ALSO SET TO LARGE LAYOUT
     QWidget *widget = new QWidget();
     widget->setLayout(largeLayout);
@@ -2038,26 +2037,34 @@ void MainWindow::about()
 {
     QString textAbout = "\
             This is the Earthquake versus Wind (EvW) tool.  It allows the user to compare the response of\
-            a building to both earthquake and wind loading.  <p> \
+            a building to both earthquake excitation and wind loading.  <p> \
             The building is represented by a shear building model: an idealization of a structure in which the mass \
             is lumped at the floor levels, the beams are assumed infinitely stiff in flexure and axially inextensible,\
             and the columns are axially inextensible.  The user inputs the floor weights and story properties (stiffness, \
-                                                                                                               yield strength, hardening ratio) of the stories, and a damping ratio for the structure. Individual floor and \
-            story values are possible by user selecting an an appropriate area in the graphic around area of interest.\
-            In addition nonlinear effects due to P-Delta and soft story mechanisms can be studied.\
+            yield strength, hardening ratio) of the stories, and a damping ratio for the structure. Individual floor and \
+            story values are possible by user edisting in the spreadsheet area or alternativily selecting an an appropriate\
+            area in the graphic around area of interest.In addition nonlinear effects due to P-Delta can be studied.\
             <p>\
             All units are in sec, kips, inches.\
             <p>\
-            For the arthquake loading he equations of motions are set up using the uniform excitation approach, \
-            i.e. MA + CV + KU = -MAg. These equations are solved using the Newmark constant acceleration method and \
-            Newton-Raphson solution algorithm.  <p>\
+            For the arthquake loading, the equations of motions are set up using the uniform excitation approach, \
+            i.e. MA + CV + KU = -MAg where Ag is the ground acceleration.\
             Additional motions can be added by user. The units for these additional motions must be in g. An\
             example is provided at https://github.com/NHERI-SimCenter/MDOF/blob/master/example/elCentro.json\
             <p>\
-            For the Wind oading the forces at each floor level are determined by MAGIC!!<p>\
-            This tool does not stop you the user from inputting values that will cause the analysis to fail. \
-            If the analysis fails, a warning message will appear and the tool will not revert back to a working \
-            set of parameters.\
+            For the Wind loading, the equations of motions are expressed as MA + CV + KU = F where\
+            F is the dynamic wind force caused by the fluctuating winds. The Kaimal wind spectrum\
+            and the Davenport coherence function are employed to describe correlated wind fields in\
+            the frequency domain. With these models, fluctuating wind velocities at each floor level are\
+            simulated in terms of the discrete frequency function scheme (Wittig and Sinha 1975),\
+            which is adopted due to its simplicity and fast computation. The dynamic wind forces\
+            are then determined by the simulated fluctuating winds.\
+            <p>\
+            The dynamic set of equations for each of the applied loading conditions are solved using the Newmark\
+            constant acceleration method and Newton-Raphson solution algorithm. As a consequence, the analysis \
+            will not always converge. Should convergence issues arise,a pop-up window will be displayed indicating\
+            such circumstances to the user. The user needs to close pop-up and change the settings, e.g. turn off \
+            P-Delta.\
             ";
 
             QMessageBox msgBox;
