@@ -382,6 +382,7 @@ void MainWindow::setBasicModel(int numF, double W, double H, double K, double ze
                 delete [] floorForcesEarthquake[j];
             delete [] floorForcesEarthquake;
         }
+
         if (dispResponsesWind != 0) {
             for (int j=0; j<numFloors+1; j++)
                 delete [] dispResponsesWind[j];
@@ -1229,7 +1230,6 @@ void MainWindow::doAnalysis()
         maxDisp = 0;
         this->doEarthquakeAnalysis();
         this->doWindAnalysis();
-
         // currentPeriod->setText(QString().setNum(T1,'f',2));
         needAnalysis = false;
         currentStep = 0;
@@ -1242,7 +1242,6 @@ void MainWindow::doAnalysis()
         int storyForceTime = theForceTimeResponse->getItem() -1;
         int appliedForceFloor = theAppliedForcesResponse->getItem() -1;
         //int storyForceDrift = theForceDispResponse->getItem() -1;
-
         nodeResponseValuesEarthquake.resize(numSteps);
         storyForceValuesEarthquake.resize(numSteps);
         storyDriftValuesEarthquake.resize(numSteps);
@@ -1252,7 +1251,6 @@ void MainWindow::doAnalysis()
         floorForceValueEarthquake.resize(numSteps);
         floorForceValuesWind.resize(numSteps);
 
-
         for (int i = 0; i < numSteps; ++i) {
             nodeResponseValuesEarthquake[i]=dispResponsesEarthquake[nodeResponseFloor][i];
             storyForceValuesEarthquake[i]=storyForceResponsesEarthquake[storyForceTime][i];
@@ -1260,9 +1258,11 @@ void MainWindow::doAnalysis()
             nodeResponseValuesWind[i]=dispResponsesWind[nodeResponseFloor][i];
             storyForceValuesWind[i]=storyForceResponsesWind[storyForceTime][i];
             storyDriftValuesWind[i]=storyDriftResponsesWind[storyForceTime][i];
+            floorForceValueEarthquake[i] = i;
             floorForceValueEarthquake[i]=floorForcesEarthquake[appliedForceFloor][i];
             floorForceValuesWind[i]=floorForcesWind[appliedForceFloor][i];
         }
+
 
         theNodeResponse->setData(nodeResponseValuesEarthquake,nodeResponseValuesWind,time,numSteps,dt);
         theForceTimeResponse->setData(storyForceValuesEarthquake,storyForceValuesWind,time,numSteps,dt);
@@ -1726,6 +1726,8 @@ void MainWindow::on_inEarthquakeMotionSelectionChanged(const QString &arg1)
         scaleFactor=theCurrentRecord->getScaleFactor();
         scaleFactorEQ->setText(QString::number(scaleFactor));
         this->setData(numStepEarthquake, dtEarthquakeMotion, eqData);
+    } else {
+        qDebug() << "ERROR: No motion found: " << arg1;
     }
 }
 
@@ -1773,6 +1775,14 @@ void MainWindow::resetFile()
     // reset to original
     this->setBasicModel(5, 5*100, 5*144, 31.54, .05, 386.4, 5*144, 5*144);
     this->setSelectionBoundary(-1.,-1.);
+    dragCoefficient->setText("1.3");
+     windGustSpeed->setText("97.3");
+     seed->setText("100");
+    shapeSelectionBox->setCurrentIndex(0);
+    expCatagory->setCurrentIndex(0);
+    eqMotion->setCurrentIndex(0);
+
+    this->on_inEarthquakeMotionSelectionChanged("ElCentro");
 
     // set currentFile blank
     setCurrentFile(QString());
@@ -1894,9 +1904,28 @@ bool MainWindow::saveFile(const QString &fileName)
     json["K"]=storyK;
     json["dampingRatio"]=dampingRatio;
     json["G"]=g;
+
+    // earthquake
     json["currentMotion"]=eqMotion->currentText();
     json["currentMotionIndex"]=eqMotion->currentIndex();
+    json["scaleFactorEQ"]=scaleFactorEQ->text();
 
+    // wind
+    json["expCatagoryIndex"]=expCatagory->currentIndex();
+    json["squareWidth"]=squareWidth->text();
+    json["shapeSelectionIndex"]=shapeSelectionBox->currentIndex();
+    json["shapeSelection"]=shapeSelectionBox->currentText();
+
+    json["windGustSpeed"]=windGustSpeed->text();
+    json["seed"]=seed->text();
+    json["dragCoefficient"] = dragCoefficient->text();
+    json["squareHeight"] = squareHeight->text();
+    json["squareWidth"] = squareWidth->text();
+    json["rectangularHeight"] = rectangularHeight->text();
+    json["rectangularWidth"] = rectangularWidth->text();
+    json["rectangularDepth"] = rectangularDepth->text();
+    json["circularHeight"] = circularHeight->text();
+    json["circularDiameter"] = circularDiameter->text();
 
     //json["motionType"]=motionType->currentIndex();
 
@@ -2103,25 +2132,59 @@ void MainWindow::loadFile(const QString &fileName)
   // clean up old
   //
 
-  if (dispResponsesEarthquake != 0) {
-    for (int j=0; j<numFloors+1; j++)
-      delete [] dispResponsesEarthquake[j];
-    delete [] dispResponsesEarthquake;
-  }
-  if (storyForceResponsesEarthquake != 0) {
-    for (int j=0; j<numFloors; j++)
-      delete [] storyForceResponsesEarthquake[j];
-    delete [] storyForceResponsesEarthquake;
-  }
-  if (storyDriftResponsesEarthquake != 0) {
-    for (int j=0; j<numFloors; j++)
-      delete [] storyDriftResponsesEarthquake[j];
-    delete [] storyDriftResponsesEarthquake;
-        }
-  
-  dispResponsesEarthquake = 0;
-  storyForceResponsesEarthquake = 0;
-  storyDriftResponsesEarthquake = 0;
+    if (dispResponsesEarthquake != 0) {
+        for (int j=0; j<numFloors+1; j++)
+            delete [] dispResponsesEarthquake[j];
+        delete [] dispResponsesEarthquake;
+    }
+    if (storyForceResponsesEarthquake != 0) {
+        for (int j=0; j<numFloors; j++)
+            delete [] storyForceResponsesEarthquake[j];
+        delete [] storyForceResponsesEarthquake;
+    }
+    if (storyDriftResponsesEarthquake != 0) {
+        for (int j=0; j<numFloors; j++)
+            delete [] storyDriftResponsesEarthquake[j];
+        delete [] storyDriftResponsesEarthquake;
+    }
+
+    if (floorForcesEarthquake != 0) {
+        for (int j=0; j<numFloors; j++)
+            delete [] floorForcesEarthquake[j];
+        delete [] floorForcesEarthquake;
+    }
+
+    if (dispResponsesWind != 0) {
+        for (int j=0; j<numFloors+1; j++)
+            delete [] dispResponsesWind[j];
+        delete [] dispResponsesWind;
+    }
+    if (storyForceResponsesWind != 0) {
+        for (int j=0; j<numFloors; j++)
+            delete [] storyForceResponsesWind[j];
+        delete [] storyForceResponsesWind;
+    }
+    if (storyDriftResponsesWind != 0) {
+        for (int j=0; j<numFloors; j++)
+            delete [] storyDriftResponsesWind[j];
+        delete [] storyDriftResponsesWind;
+    }
+    if (floorForcesWind != 0) {
+        for (int j=0; j<numFloors; j++)
+            delete [] floorForcesWind[j];
+        delete [] floorForcesWind;
+    }
+
+
+    dispResponsesEarthquake = 0;
+    dispResponsesWind = 0;
+    storyDriftResponsesEarthquake = 0;
+    storyDriftResponsesWind = 0;
+    storyForceResponsesEarthquake = 0;
+    storyForceResponsesWind = 0;
+    floorForcesEarthquake = 0;
+    floorForcesWind = 0;
+
 
     if (weights != 0)
         delete [] weights;
@@ -2222,6 +2285,10 @@ void MainWindow::loadFile(const QString &fileName)
     for (int i=0; i<numFloors+1; i++) {
         dispResponsesEarthquake[i] = new double[numSteps+1]; // +1 as doing 0 at start
     }
+    dispResponsesWind = new double *[numFloors+1];
+    for (int i=0; i<numFloors+1; i++) {
+        dispResponsesWind[i] = new double[numSteps+1]; // +1 as doing 0 at start
+    }
 
     //
     // clear records and inMotion combo box
@@ -2250,6 +2317,7 @@ void MainWindow::loadFile(const QString &fileName)
         theRecord->inputFromJSON(theEarthquakeObj);
         records.insert(std::make_pair(theRecord->name, theRecord));
         eqMotion->addItem(theRecord->name);
+        qDebug() << "Loaded Record: " << theRecord->name;
     }
 
     //
@@ -2257,31 +2325,56 @@ void MainWindow::loadFile(const QString &fileName)
     //
 
     theValue = jsonObject["currentMotionIndex"];
+    int currIndex = theValue.toInt();
     eqMotion->setCurrentIndex(theValue.toInt());
     theValue = jsonObject["currentMotion"];
+    QString currentMotionName = theValue.toString();
+   // qDebug() << "INDEX & NAME: " << currIndex << " " << currentMotionName;
 
+    theValue = jsonObject["scaleFactorEQ"];//=scaleFactorEQ->currentText();
+    scaleFactorEQ->setText(theValue.toString());
 
+    // wind
 
+    theValue = jsonObject["expCatagoryIndex"];
+    expCatagory->setCurrentIndex(theValue.toInt());
+    theValue = jsonObject["shapeSelectionIndex"];
+    shapeSelectionBox->setCurrentIndex(theValue.toInt());
 
-   // json["motionType"]=motionType->currentIndex();
-    theValue = jsonObject["motionType"];
-    //motionType->setCurrentIndex(theValue.toInt());
-    //dtHarmonicMotion=theValue.toDouble();
-    //dtHarmonic->setText(QString::number(dtHarmonicMotion));
-
+    theValue = jsonObject["windGustSpeed"];
+    windGustSpeed->setText(theValue.toString());
+    theValue = jsonObject["seed"];
+    seed->setText(theValue.toString());
+    theValue = jsonObject["dragCoefficient"];
+    dragCoefficient->setText(theValue.toString());
+    theValue = jsonObject["squareHeight"];
+    squareHeight->setText(theValue.toString());
+    theValue = jsonObject["squareWidth"];
+    squareWidth->setText(theValue.toString());
+    theValue = jsonObject["rectangularHeight"];
+    rectangularHeight->setText(theValue.toString());
+    theValue = jsonObject["rectangularWidth"];
+    rectangularWidth->setText(theValue.toString());
+    theValue = jsonObject["rectangularDepth"];
+    rectangularDepth->setText(theValue.toString());
+    theValue = jsonObject["circularHeight"];
+    circularHeight->setText(theValue.toString());
+    theValue = jsonObject["circularDiameter"];
+    circularDiameter->setText(theValue.toString());
 
     this->reset();
-    this->on_inEarthquakeMotionSelectionChanged(theValue.toString());
+    this->on_inEarthquakeMotionSelectionChanged(currentMotionName);
+
     theNodeResponse->setItem(numFloors);
     theForceDispResponse->setItem(1);
     theForceTimeResponse->setItem(1);
+    theAppliedForcesResponse->setItem(1);
 
     // close file
     file.close();
 
     // given the json object, create the C++ objects
     // inputWidget->inputFromJSON(jsonObj);
-
     //setCurrentFile(fileName);
 }
 
@@ -2373,7 +2466,6 @@ void MainWindow::createActions() {
     appliedForcesResponseDock->setFloating(true);
     appliedForcesResponseDock->close();
     viewMenu->addAction(appliedForcesResponseDock->toggleViewAction());
-
 
     QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));
     QAction *infoAct = helpMenu->addAction(tr("&About"), this, &MainWindow::about);
