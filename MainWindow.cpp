@@ -64,6 +64,7 @@ UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 #include <QtNetwork/QNetworkAccessManager>
 #include <QtNetwork/QNetworkReply>
 #include <QtNetwork/QNetworkRequest>
+#include <QHostInfo>
 
 // OpenSees include files
 #include <Node.h>
@@ -114,6 +115,12 @@ OPS_Stream *opserrPtr = &sserr;
 Domain theDomain;
 
 using namespace Wind;
+
+
+void
+MainWindow::errorMessage(QString mesg) {
+QMessageBox::warning(this, tr("Application"), mesg);
+}
 
 //
 // procedure to create a QLabel QLineInput pair, returns pointer to QLineEdit created
@@ -279,7 +286,34 @@ MainWindow::MainWindow(QWidget *parent) :
             this, SLOT(replyFinished(QNetworkReply*)));
 
     manager->get(QNetworkRequest(QUrl("http://opensees.berkeley.edu/OpenSees/developer/evw/use.php")));
-    //manager->get(QNetworkRequest(QUrl("https://simcenter.designsafe-ci.org/multiple-degrees-freedom-analytics/")));
+
+    //
+    // google analytics
+    // ref: https://developers.google.com/analytics/devguides/collection/protocol/v1/reference
+    //
+
+    QNetworkRequest request;
+    QUrl host("http://www.google-analytics.com/collect");
+    request.setUrl(host);
+    request.setHeader(QNetworkRequest::ContentTypeHeader,
+                      "application/x-www-form-urlencoded");
+
+    // setup parameters of request
+    QString requestParams;
+    QString hostname = QHostInfo::localHostName() + "." + QHostInfo::localDomainName();
+    QUuid uuid = QUuid::createUuid();
+    requestParams += "v=1"; // version of protocol
+    requestParams += "&tid=UA-121618417-1"; // Google Analytics account
+    requestParams += "&cid=" + uuid.toString(); // unique user identifier
+    requestParams += "&t=event";  // hit type = event others pageview, exception
+    requestParams += "&an=EVW";   // app name
+    requestParams += "&av=1.0.0"; // app version
+    requestParams += "&ec=EVW";   // event category
+    requestParams += "&ea=start"; // event action
+
+    // send request via post method
+    manager->post(request, requestParams.toStdString().c_str());
+
 }
 
 MainWindow::~MainWindow()
@@ -302,6 +336,8 @@ MainWindow::~MainWindow()
         delete [] floorHeights;
     if (dampRatios != 0)
         delete [] dampRatios;
+
+    delete manager;
 }
 
 void MainWindow::draw(MyGlWidget *theGL, int loadingType)
@@ -2128,6 +2164,18 @@ void MainWindow::loadFile(const QString &fileName)
         return;
     }
 
+    // place contents of file into json object
+    QString val;
+    val=file.readAll();
+    QJsonDocument doc = QJsonDocument::fromJson(val.toUtf8());
+    if (doc.isNull() || doc.isEmpty()) {
+        errorMessage("Error Loading File: Not a JSON file or empty");
+        return;
+
+    }
+    QJsonObject jsonObject = doc.object();
+
+
   //
   // clean up old
   //
@@ -2175,6 +2223,7 @@ void MainWindow::loadFile(const QString &fileName)
         delete [] floorForcesWind;
     }
 
+    //
 
     dispResponsesEarthquake = 0;
     dispResponsesWind = 0;
@@ -2201,33 +2250,70 @@ void MainWindow::loadFile(const QString &fileName)
     if (dampRatios != 0)
         delete [] dampRatios;
 
-    // place contents of file into json object
-    QString val;
-    val=file.readAll();
-    QJsonDocument doc = QJsonDocument::fromJson(val.toUtf8());
-    QJsonObject jsonObject = doc.object();
+
 
     QJsonValue theValue = jsonObject["numFloors"];
+    if (theValue.isUndefined()) {
+        errorMessage("No \"numFloors\" section");
+        this->setBasicModel(5, 5*100, 5*144, 31.54, .05, 386.4, 5*144, 5*144);
+        this->on_inEarthquakeMotionSelectionChanged("ElCentro");
+        return;
+    }
     numFloors=theValue.toInt();
     inFloors->setText(QString::number(numFloors));
 
     theValue = jsonObject["buildingHeight"];
+    if (theValue.isUndefined()) {
+        errorMessage("No \"buildingHeight\" section");
+        this->setBasicModel(5, 5*100, 5*144, 31.54, .05, 386.4, 5*144, 5*144);
+        this->on_inEarthquakeMotionSelectionChanged("ElCentro");
+        return;
+        return;
+    }
     buildingH=theValue.toDouble();
     inHeight->setText(QString::number(buildingH));
 
     theValue = jsonObject["buildingWeight"];
+    if (theValue.isUndefined()) {
+        errorMessage("No \"buildingWeight\" section");
+        this->setBasicModel(5, 5*100, 5*144, 31.54, .05, 386.4, 5*144, 5*144);
+        this->on_inEarthquakeMotionSelectionChanged("ElCentro");
+        return;
+        return;
+    }
     buildingW=theValue.toDouble();
     inWeight->setText(QString::number(buildingW));
 
     theValue = jsonObject["K"];
+    if (theValue.isUndefined()) {
+        errorMessage("No \"K\" section");
+        this->setBasicModel(5, 5*100, 5*144, 31.54, .05, 386.4, 5*144, 5*144);
+        this->on_inEarthquakeMotionSelectionChanged("ElCentro");
+        return;
+        return;
+    }
     storyK=theValue.toDouble();
     inK->setText(QString::number(storyK));
 
     theValue = jsonObject["G"];
+    if (theValue.isUndefined()) {
+        errorMessage("No \"G\" section");
+        this->setBasicModel(5, 5*100, 5*144, 31.54, .05, 386.4, 5*144, 5*144);
+        this->on_inEarthquakeMotionSelectionChanged("ElCentro");
+        return;
+        return;
+    }
     g=theValue.toDouble();
     //inGravity->setText(QString::number(g));
 
     theValue = jsonObject["dampingRatio"];
+    if (theValue.isUndefined()) {
+        errorMessage("No \"dampingRatio\" section");
+        this->setBasicModel(5, 5*100, 5*144, 31.54, .05, 386.4, 5*144, 5*144);
+        this->on_inEarthquakeMotionSelectionChanged("ElCentro");
+        return;
+        return;
+    }
     dampingRatio=theValue.toDouble();
     inDamping->setText(QString::number(dampingRatio));
 
@@ -2242,30 +2328,65 @@ void MainWindow::loadFile(const QString &fileName)
     QJsonArray theArray;
 
     theValue = jsonObject["floorWeights"];
+    if (theValue.isUndefined()) {
+        errorMessage("No \"floorWeights\" section");
+        this->setBasicModel(5, 5*100, 5*144, 31.54, .05, 386.4, 5*144, 5*144);
+        this->on_inEarthquakeMotionSelectionChanged("ElCentro");
+        return;
+        return;
+    }
     theArray=theValue.toArray();
 
     for (int i=0; i<numFloors; i++)
         weights[i] = theArray.at(i).toDouble();
 
     theValue = jsonObject["storyK"];
+    if (theValue.isUndefined()) {
+        errorMessage("No \"storyK\" section");
+        this->setBasicModel(5, 5*100, 5*144, 31.54, .05, 386.4, 5*144, 5*144);
+        this->on_inEarthquakeMotionSelectionChanged("ElCentro");
+        return;
+        return;
+    }
     theArray=theValue.toArray();
 
     for (int i=0; i<numFloors; i++)
         k[i] = theArray.at(i).toDouble();
 
     theValue = jsonObject["storyFy"];
+    if (theValue.isUndefined()) {
+        errorMessage("No \"storyFy\" section");
+        this->setBasicModel(5, 5*100, 5*144, 31.54, .05, 386.4, 5*144, 5*144);
+        this->on_inEarthquakeMotionSelectionChanged("ElCentro");
+        return;
+        return;
+    }
     theArray=theValue.toArray();
 
     for (int i=0; i<numFloors; i++)
         fy[i] = theArray.at(i).toDouble();
 
     theValue = jsonObject["storyB"];
+    if (theValue.isUndefined()) {
+        errorMessage("No \"storyB\" section");
+        this->setBasicModel(5, 5*100, 5*144, 31.54, .05, 386.4, 5*144, 5*144);
+        this->on_inEarthquakeMotionSelectionChanged("ElCentro");
+        return;
+        return;
+    }
     theArray=theValue.toArray();
 
     for (int i=0; i<numFloors; i++)
         b[i] = theArray.at(i).toDouble();
 
     theValue = jsonObject["storyHeights"];
+    if (theValue.isUndefined()) {
+        errorMessage("No \"storyHeights\" section");
+        this->setBasicModel(5, 5*100, 5*144, 31.54, .05, 386.4, 5*144, 5*144);
+        this->on_inEarthquakeMotionSelectionChanged("ElCentro");
+        return;
+        return;
+    }
     theArray=theValue.toArray();
 
     floorHeights[0] = 0;
@@ -2275,6 +2396,13 @@ void MainWindow::loadFile(const QString &fileName)
     }
 
     theValue = jsonObject["dampRatios"];
+    if (theValue.isUndefined()) {
+        errorMessage("No \"dampRatios\" section");
+        this->setBasicModel(5, 5*100, 5*144, 31.54, .05, 386.4, 5*144, 5*144);
+        this->on_inEarthquakeMotionSelectionChanged("ElCentro");
+        return;
+        return;
+    }
     theArray=theValue.toArray();
 
     for (int i=0; i<numFloors; i++)
@@ -2305,6 +2433,11 @@ void MainWindow::loadFile(const QString &fileName)
     eqMotion->clear();
 
     theValue = jsonObject["records"];
+    if (theValue.isUndefined()) {
+        errorMessage("No \"records\" section");
+        this->on_inEarthquakeMotionSelectionChanged("ElCentro");
+        return;
+    }
     theArray=theValue.toArray();
 
     //
@@ -2325,9 +2458,17 @@ void MainWindow::loadFile(const QString &fileName)
     //
 
     theValue = jsonObject["currentMotionIndex"];
+    if (theValue.isUndefined()) {
+        errorMessage("No \"currentMotionIndex\" section");
+        return;
+    }
     int currIndex = theValue.toInt();
     eqMotion->setCurrentIndex(theValue.toInt());
     theValue = jsonObject["currentMotion"];
+    if (theValue.isUndefined()) {
+        errorMessage("No \"currentMotion\" section");
+        return;
+    }
     QString currentMotionName = theValue.toString();
    // qDebug() << "INDEX & NAME: " << currIndex << " " << currentMotionName;
 
@@ -2337,13 +2478,29 @@ void MainWindow::loadFile(const QString &fileName)
     // wind
 
     theValue = jsonObject["expCatagoryIndex"];
+    if (theValue.isUndefined()) {
+        errorMessage("No \"expCatagoryIndex\" section");
+        return;
+    }
     expCatagory->setCurrentIndex(theValue.toInt());
     theValue = jsonObject["shapeSelectionIndex"];
+    if (theValue.isUndefined()) {
+        errorMessage("No \"shapeSelectionIndex\" section");
+        return;
+    }
     shapeSelectionBox->setCurrentIndex(theValue.toInt());
 
     theValue = jsonObject["windGustSpeed"];
+    if (theValue.isUndefined()) {
+        errorMessage("No \"windGustSpeed\" section");
+        return;
+    }
     windGustSpeed->setText(theValue.toString());
     theValue = jsonObject["seed"];
+    if (theValue.isUndefined()) {
+        errorMessage("No \"seeds\" section");
+        return;
+    }
     seed->setText(theValue.toString());
     theValue = jsonObject["dragCoefficient"];
     dragCoefficient->setText(theValue.toString());
@@ -2849,7 +3006,7 @@ void MainWindow::createInputPanel() {
     dragCoefficient->setText("1.3");
 
     inK = createTextEntry(tr("Story Stiffness"), mainPropertiesLayout, 100, 100, &kipsInch);
-    inDamping = createTextEntry(tr("Damping Ratio"), mainPropertiesLayout, 100, 100, &percent);
+    inDamping = createTextEntry(tr("Damping Ratio"), mainPropertiesLayout, 100, 100, &blank);
     pDeltaBox = new QCheckBox(tr("Include PDelta"), 0);
     pDeltaBox->setCheckState(Qt::Checked);
 

@@ -162,6 +162,7 @@ private slots:
     void viewStoryResponse();
 
 private:
+    void errorMessage(QString);
     void doEarthquakeAnalysis(void);
     void doWindAnalysis(void);
 
