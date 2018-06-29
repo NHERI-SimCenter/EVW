@@ -2647,6 +2647,16 @@ void MainWindow::on_shapeChange(int rowSelected) {
     shapesWidget->setCurrentIndex(rowSelected);
 }
 
+void MainWindow::on_buildingWidthChanged(double newWidth)
+{
+    if (newWidth != buildingWidth) {
+        buildingWidth = newWidth;
+        this->updatePeriod();
+        needAnalysis = true;
+        this->reset();
+    }
+}
+
 void MainWindow::viewNodeResponse(){
 
 }
@@ -3130,6 +3140,25 @@ void MainWindow::createInputPanel() {
     connect(inFloors,SIGNAL(editingFinished()), this, SLOT(on_inFloors_editingFinished()));
     connect(inWeight,SIGNAL(editingFinished()), this, SLOT(on_inWeight_editingFinished()));
     connect(inHeight,SIGNAL(editingFinished()), this, SLOT(on_inHeight_editingFinished()));
+
+    connect(squareWidth, &QLineEdit::editingFinished, this, [this]()
+    {
+        double width = squareWidth->text().toDouble();
+        on_buildingWidthChanged(width);
+    });
+
+    connect(rectangularWidth, &QLineEdit::editingFinished, this, [this]()
+    {
+        double width = rectangularWidth->text().toDouble();
+        on_buildingWidthChanged(width);
+    });
+
+    connect(circularDiameter, &QLineEdit::editingFinished, this, [this]()
+    {
+        double width = circularDiameter->text().toDouble();
+        on_buildingWidthChanged(width);
+    });
+
     connect(inK,SIGNAL(editingFinished()), this, SLOT(on_inK_editingFinished()));
     connect(inDamping,SIGNAL(editingFinished()), this, SLOT(on_inDamping_editingFinished()));
     connect(inFloorWeight,SIGNAL(editingFinished()), this, SLOT(on_inFloorWeight_editingFinished()));

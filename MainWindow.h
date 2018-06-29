@@ -110,6 +110,7 @@ private slots:
     void on_inDamping_editingFinished();
     void on_inGravity_editingFinished();
     void on_shapeChange(int);
+    void on_buildingWidthChanged(double newWidth);
 
     // for selected floor edits
     void on_inFloorWeight_editingFinished();
