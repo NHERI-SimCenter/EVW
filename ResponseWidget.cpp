@@ -141,7 +141,6 @@ ResponseWidget::itemEditChanged() {
     QString textItems =  theItemEdit->text();
     theItem = textItems.toInt();
 
-    qDebug() << "ResponeWidget " << theItem << mainWindowItem;
     if (oldItem == theItem)
         return;
 
@@ -186,7 +185,6 @@ ResponseWidget::setData(QVector<double> &data1, QVector<double> &data2, QVector<
 
 
     if (scalesSame == false) {
-        qDebug() << mainWindowItem << scalesSame;
         minValue = 0;
         maxValue = 0;
 

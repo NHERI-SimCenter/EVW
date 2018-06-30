@@ -219,6 +219,19 @@ MainWindow::MainWindow(QWidget *parent) :
     time(1561),excitationValues(1561), graph(0), groupTracer(0),floorSelected(-1),storySelected(-1)
 {
 
+    //
+    // user settings
+    //
+
+    QSettings settings("SimCenter", "uqFEM");
+    QVariant savedValue = settings.value("uuid");
+    QUuid uuid;
+    if (savedValue.isNull()) {
+        uuid = QUuid::createUuid();
+        settings.setValue("uuid",uuid);
+    } else
+        uuid =savedValue.toUuid();
+
     scaleFactor = 1.0;
     eigValues = new Vector;
     createActions();
@@ -292,6 +305,7 @@ MainWindow::MainWindow(QWidget *parent) :
     // ref: https://developers.google.com/analytics/devguides/collection/protocol/v1/reference
     //
 
+
     QNetworkRequest request;
     QUrl host("http://www.google-analytics.com/collect");
     request.setUrl(host);
@@ -301,7 +315,6 @@ MainWindow::MainWindow(QWidget *parent) :
     // setup parameters of request
     QString requestParams;
     QString hostname = QHostInfo::localHostName() + "." + QHostInfo::localDomainName();
-    QUuid uuid = QUuid::createUuid();
     requestParams += "v=1"; // version of protocol
     requestParams += "&tid=UA-121618417-1"; // Google Analytics account
     requestParams += "&cid=" + uuid.toString(); // unique user identifier
@@ -1643,7 +1656,6 @@ void MainWindow::setData(int nStep, double deltaT, Vector *data) {
     if (numFloors == 0 || deltaT == 0. || data == 0)
         return;
 
-    qDebug() << "  MainWindow::setData()" << numFloors << " " << nStep << " " << deltaT;
     if (deltaT*nStep < 5*60)
         numSteps =  floor(5.0*60/deltaT); // nStep;
     else
