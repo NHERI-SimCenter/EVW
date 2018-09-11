@@ -48,7 +48,7 @@ UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 #include <QSlider>
 //#include <QtNetwork>
 #include <QWidget>
-#include <QLineEdit>V
+#include <QLineEdit>
 #include <QComboBox>
 #include <QLabel>
 #include <QPushButton>
@@ -386,7 +386,7 @@ void MainWindow::draw(MyGlWidget *theGL, int loadingType)
     }
 
     // display range of displacement
-    static char maxDispString[30];
+    static char maxDispString[50];
     snprintf(maxDispString, 50, "%.3e", maxDisp);
     theGL->drawLine(0, -maxDisp, 0.0, maxDisp, 0.0, 1.0, 0., 0., 0.);
 

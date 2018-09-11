@@ -11,8 +11,8 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 TARGET = EVW
 TEMPLATE = app
 
-include(OPS_includes.pro)
-include(Wind_includes.pro)
+include(OPS_includes.pri)
+include(Wind_includes.pri)
 include(../SimCenterCommon/Common/Common.pri)
 
 VERSION=1.1.1
