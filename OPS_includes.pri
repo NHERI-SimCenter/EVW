@@ -142,8 +142,8 @@ DEFINES += "_LINUX"
 INCLUDEPATH += "/apps/rappture/dev/include"
 INCLUDEPATH += ./include "./ops"
 
-LIBS += /home/fmk/lib/libLapack.a
-LIBS += /home/fmk/lib/libBlas.a
+LIBS += -llapack
+LIBS += -lblas
 LIBS += -lgfortran
 
 SRC += ./ops/Domain.cpp

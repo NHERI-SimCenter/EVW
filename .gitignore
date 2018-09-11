@@ -36,8 +36,13 @@ moc*
 *.exe
 *.out
 *.app
+EVW
 
 # QT
 *.pro.user
 qcustomplot.h
 qcustomplot.cpp
+resources.qrc
+.qmake.stash
+Makefile
+qmake_qmake_immediate.qrc

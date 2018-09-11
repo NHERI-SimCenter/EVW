@@ -1,15 +1,15 @@
 
-SOURCES += ./wind/WindSim.cpp \
-./wind/rtGetInf.cpp \
-./wind/rtGetNan.cpp \
-./wind/windsim_dk1_main.cpp \
-./wind/windsim_dk1_main_emxAPI.cpp \
-./wind/windsim_dk1_main_emxutil.cpp \
-./wind/rt_nonfinite.cpp
+SOURCES += $$PWD/wind/WindSim.cpp \
+$$PWD/wind/rtGetInf.cpp \
+$$PWD/wind/rtGetNan.cpp \
+$$PWD/wind/windsim_dk1_main.cpp \
+$$PWD/wind/windsim_dk1_main_emxAPI.cpp \
+$$PWD/wind/windsim_dk1_main_emxutil.cpp \
+$$PWD/wind/rt_nonfinite.cpp
 
 
 DEFINES += _bool_h
-INCLUDEPATH += "./wind"
+INCLUDEPATH += "$$PWD/wind"
 
 
 
@@ -38,8 +38,8 @@ DEFINES += "_LINUX"
 INCLUDEPATH += "/apps/rappture/dev/include"
 INCLUDEPATH += ./include "./ops"
 
-LIBS += /home/fmk/lib/libLapack.a
-LIBS += /home/fmk/lib/libBlas.a
+LIBS += -llapack
+LIBS += -lblas
 LIBS += -lgfortran
 
 SRC += ./ops/Domain.cpp
