@@ -46,3 +46,6 @@ resources.qrc
 .qmake.stash
 Makefile
 qmake_qmake_immediate.qrc
+qrc_images.cpp
+qrc_images1.cpp
+qrc_qmake_qmake_immediate.cpp

@@ -129,6 +129,7 @@ QMessageBox::warning(this, tr("Application"), mesg);
 QLineEdit *
 createTextEntry(QString text,
                 QVBoxLayout *theLayout,
+		QString toolTip = QString(),		
                 int minL=100,
                 int maxL=100,
                 QString *unitText =0)
@@ -153,6 +154,10 @@ createTextEntry(QString text,
         unitLabel->setMaximumWidth(50);
         entryLayout->addWidget(unitLabel);
 
+    }
+
+    if (!toolTip.isEmpty()) {
+      res->setToolTip(toolTip);
     }
 
     entryLayout->setSpacing(10);
@@ -997,9 +1002,9 @@ MainWindow::doEarthquakeAnalysis() {
         delete [] theElements;
 
         QMessageBox::warning(this, tr("Application"),
-                             tr("Eigenvalue Analysis Failed.<p> Possible Causes: negstive mass, negative story stiffness, or "
-                                "if PDelta is included, a story stiffness - axial load divided by L is negtive resulting "
-                                "in non postive definite stiffness matrix"));
+                             tr("Eigenvalue Analysis Failed.<p> Possible Causes: negative mass, negative story stiffness, or "
+                                "if PDelta is included, a story stiffness - axial load divided by L is negative resulting "
+                                "in non positive definite stiffness matrix"));
 
         return;
     }
@@ -1388,12 +1393,30 @@ void MainWindow::reset() {
     updatingPropertiesTable = true;
     theSpreadsheet->setHorizontalHeaderLabels(QString(" Weight ; Height ;    K    ;    Fy    ;    b    ;  zeta").split(";"));
     for (int i=0; i<numFloors; i++) {
-        theSpreadsheet->setItem(i,0,new QTableWidgetItem(QString().setNum(weights[i])));
-        theSpreadsheet->setItem(i,1,new QTableWidgetItem(QString().setNum(storyHeights[i])));
-        theSpreadsheet->setItem(i,2,new QTableWidgetItem(QString().setNum(k[i])));
-        theSpreadsheet->setItem(i,3,new QTableWidgetItem(QString().setNum(fy[i])));
-        theSpreadsheet->setItem(i,4,new QTableWidgetItem(QString().setNum(b[i])));
-        theSpreadsheet->setItem(i,5,new QTableWidgetItem(QString().setNum(dampRatios[i])));
+        QTableWidgetItem *item;
+        item = new QTableWidgetItem(QString().setNum(weights[i]));
+        item->setToolTip(QString("Weight of floor " + QString::number(i+1)));
+        theSpreadsheet->setItem(i,0, item);
+
+        item = new QTableWidgetItem(QString().setNum(storyHeights[i]));
+        item->setToolTip(QString("Height of story " + QString::number(i+1)));
+        theSpreadsheet->setItem(i,1,item);
+
+        item = new QTableWidgetItem(QString().setNum(k[i]));
+        item->setToolTip(QString("Stiffness of story " + QString::number(i+1)));
+        theSpreadsheet->setItem(i,2,item);
+
+        item = new QTableWidgetItem(QString().setNum(fy[i]));
+        item->setToolTip(QString("Yield strength of story " + QString::number(i+1)));
+        theSpreadsheet->setItem(i,3,item);
+
+        item = new QTableWidgetItem(QString().setNum(b[i]));
+        item->setToolTip(QString("Hardening ratio of story " + QString::number(i+1)));
+        theSpreadsheet->setItem(i,4, item);
+
+        item = new QTableWidgetItem(QString().setNum(dampRatios[i]));
+        item->setToolTip(QString("Damping ratio of mode " + QString::number(i+1)));
+        theSpreadsheet->setItem(i,5, item);
     }
     theSpreadsheet->resizeRowsToContents();
     theSpreadsheet->resizeColumnsToContents();
@@ -2744,6 +2767,8 @@ void MainWindow::createInputPanel() {
     earthquakeForcesLayout->addWidget(entryLabel,0,0);
 
     eqMotion = new QComboBox();
+    eqMotion->setToolTip(tr("Input acceleration time history for earthquake specified"
+			    " in units of g (gravitational acceleration)"));    
     earthquakeForcesLayout->addWidget(eqMotion,0,1);
 
     // scale factor
@@ -2751,11 +2776,15 @@ void MainWindow::createInputPanel() {
     QLabel *scaleLabel = new QLabel(tr("Scale Factor"));
     earthquakeForcesLayout->addWidget(scaleLabel,1,0);
     scaleFactorEQ = new QLineEdit();
+    scaleFactorEQ->setToolTip(tr("Scale the input earthquake motion by this factor"));    
     earthquakeForcesLayout->addWidget(scaleFactorEQ,1,1);
 
     // button to add more
 
     addMotion = new QPushButton("Add");
+    addMotion->setToolTip(tr("Use this button to add earthquake motions. Motions need to be in a"
+			     " specific format and specified in units of g. See the provided"
+			     " motions for example input format."));
     earthquakeForcesLayout->addWidget(addMotion,2,1);
     earthquakBox->setLayout(earthquakeForcesLayout);
 
@@ -2773,6 +2802,8 @@ void MainWindow::createInputPanel() {
     windBoxLayout->addWidget(categoryLabel,0,0);
 
     expCatagory = new QComboBox();
+    expCatagory->setToolTip(tr("The exposure category represents the surface roughness"
+			       " surrounding a site"));    
    // expCatagory->addItem("A");
     expCatagory->addItem("B");
     expCatagory->addItem("C");
@@ -2785,6 +2816,7 @@ void MainWindow::createInputPanel() {
     windBoxLayout->addWidget(gustLabel,1,0);
 
     windGustSpeed = new QLineEdit();
+    windGustSpeed->setToolTip(tr("3 second gust per ASCE 7"));    
     windGustSpeed->setText("97.3");
     windBoxLayout->addWidget(windGustSpeed,1,1);
 
@@ -2807,10 +2839,11 @@ void MainWindow::createInputPanel() {
 */
     // gust speed
     QLabel *seedLabel = new QLabel();
-    seedLabel->setText(tr("seed"));
+    seedLabel->setText(tr("Seed"));
     windBoxLayout->addWidget(seedLabel,2,0);
 
     seed = new QLineEdit();
+    seed->setToolTip(tr("Seed value for the random number generator"));    
     seed->setText("100");
     windBoxLayout->addWidget(seed,2,1);
 
@@ -2850,18 +2883,19 @@ void MainWindow::createInputPanel() {
 
     // add num floors and buiding weight
 
-    inFloors = createTextEntry(tr("Number Floors"), mainPropertiesLayout, 100, 100, &blank);
-    inWeight = createTextEntry(tr("Building Weight"), mainPropertiesLayout, 100, 100, &kips);
+    inFloors = createTextEntry(tr("Number Floors"), mainPropertiesLayout, tr("Number of floors or stories in building"), 100, 100, &blank);
+    inWeight = createTextEntry(tr("Building Weight"), mainPropertiesLayout, tr("Total building weight, each floor will have a weight given by weight/ number of floors"), 100, 100, &kips);
 
     // now add a layout for building shape selection
 
     QHBoxLayout *shapeLayout = new QHBoxLayout();
     QLabel *shapeLabel = new QLabel();
-    shapeLabel->setText("Shape");
+    shapeLabel->setText(tr("Shape"));
     shapeSelectionBox = new QComboBox();
-    shapeSelectionBox->addItem("Square");
-    shapeSelectionBox->addItem("Rectangular");
-    shapeSelectionBox->addItem("Circular");
+    shapeSelectionBox->setToolTip(tr("Plan view shape of building"));
+    shapeSelectionBox->addItem(tr("Square"));
+    shapeSelectionBox->addItem(tr("Rectangular"));
+    shapeSelectionBox->addItem(tr("Circular"));
 
     shapeSelectionBox->setMinimumWidth(100);
     shapeSelectionBox->setMaximumWidth(100);
@@ -2887,7 +2921,9 @@ void MainWindow::createInputPanel() {
     QHBoxLayout *squareLayout= new QHBoxLayout();
 
     squareHeight = new QLineEdit();
+    squareHeight->setToolTip(tr("Total building height"));
     squareWidth = new QLineEdit();
+    squareWidth->setToolTip(tr("Square building side width"));
 
     squareHeight->setMaximumWidth(100);
     squareWidth->setMaximumWidth(100);
@@ -2929,8 +2965,11 @@ void MainWindow::createInputPanel() {
     QHBoxLayout *rectangularLayout= new QHBoxLayout();
 
     rectangularHeight = new QLineEdit();
+    rectangularHeight->setToolTip(tr("Total building height"));
     rectangularWidth = new QLineEdit();
+    rectangularWidth->setToolTip(tr("Rectangular building side width"));
     rectangularDepth = new QLineEdit();
+    rectangularDepth->setToolTip(tr("Rectangular building side depth"));    
 
 
     rectangularHeight->setMaximumWidth(100);
@@ -2984,8 +3023,10 @@ void MainWindow::createInputPanel() {
     QFrame *circularWidget = new QFrame();
     QHBoxLayout *circularLayout= new QHBoxLayout();
     circularHeight = new QLineEdit();
+    circularHeight->setToolTip(tr("Total building height"));
     circularHeight->setMaximumWidth(100);
     circularDiameter = new QLineEdit();
+    circularDiameter->setToolTip(tr("Circular building diameter"));
     circularDiameter->setMaximumWidth(100);
     QLabel *circularHeightLabel = new QLabel("Height");
     QLabel *circularDiameterLabel = new QLabel("Diameter");
@@ -3024,12 +3065,13 @@ void MainWindow::createInputPanel() {
    // finally to finish off building properties we add the rest of building properties
    //   - drag coefficient, story stiffness, modal damping ratio and a checkbox for inclusion of PDelta
    //
-    dragCoefficient = createTextEntry(tr("Drag Coefficient"), mainPropertiesLayout, 100, 100, &blank);
+    dragCoefficient = createTextEntry(tr("Drag Coefficient"), mainPropertiesLayout, tr("Dimensionless quantity used to quantify drag force on an object in fluid"), 100, 100, &blank);
     dragCoefficient->setText("1.3");
 
-    inK = createTextEntry(tr("Story Stiffness"), mainPropertiesLayout, 100, 100, &kipsInch);
-    inDamping = createTextEntry(tr("Damping Ratio"), mainPropertiesLayout, 100, 100, &blank);
+    inK = createTextEntry(tr("Story Stiffness"), mainPropertiesLayout, tr("Story stiffnesses, that force required to push the floor above 1 inch, assuming all other stories have infinite stiffness"), 100, 100, &kipsInch);
+    inDamping = createTextEntry(tr("Damping Ratio"), mainPropertiesLayout, tr("For each mode of vibration a number that specifies how quickly the structure stops vibrating in that mode"), 100, 100, &blank);
     pDeltaBox = new QCheckBox(tr("Include PDelta"), 0);
+    pDeltaBox->setToolTip("Include \"Large\" P Delta Effects if box is checked");    
     pDeltaBox->setCheckState(Qt::Checked);
 
     mainPropertiesLayout->addWidget(pDeltaBox);
@@ -3051,7 +3093,7 @@ void MainWindow::createInputPanel() {
     floorMassFrame = new QFrame();
     floorMassFrame->setObjectName(QString::fromUtf8("floorMassFrame")); //styleSheet
     QVBoxLayout *floorMassFrameLayout = new QVBoxLayout();
-    inFloorWeight = createTextEntry(tr("Floor Weight"), floorMassFrameLayout);
+    inFloorWeight = createTextEntry(tr("Floor Weight"), floorMassFrameLayout, tr("Individual floor weight, will change total weight if edit"));
     floorMassFrame->setLayout(floorMassFrameLayout);
     floorMassFrame->setLineWidth(1);
     floorMassFrame->setFrameShape(QFrame::Box);
@@ -3061,10 +3103,10 @@ void MainWindow::createInputPanel() {
     storyPropertiesFrame = new QFrame();
     storyPropertiesFrame->setObjectName(QString::fromUtf8("storyPropertiesFrame"));
     QVBoxLayout *storyPropertiesFrameLayout = new QVBoxLayout();
-    inStoryHeight = createTextEntry(tr("Story Height"), storyPropertiesFrameLayout);
-    inStoryK = createTextEntry(tr("Stiffness"), storyPropertiesFrameLayout);
-    inStoryFy = createTextEntry(tr("Yield Strength"), storyPropertiesFrameLayout);
-    inStoryB = createTextEntry(tr("Hardening Ratio"), storyPropertiesFrameLayout);
+    inStoryHeight = createTextEntry(tr("Story Height"), storyPropertiesFrameLayout, tr("For stories selected sets story height, effects overall height if edited"));
+    inStoryK = createTextEntry(tr("Stiffness"), storyPropertiesFrameLayout, tr("For stories selected force required to push each floor 1 inch assuming all other floors infinite stiffness"));
+    inStoryFy = createTextEntry(tr("Yield Strength"), storyPropertiesFrameLayout, tr("For stories selected force at which story yields, i.e. if aply more force floor will not return to original position assuming all other rigid"));
+    inStoryB = createTextEntry(tr("Hardening Ratio"), storyPropertiesFrameLayout, tr("For stories selected the hardening ratio defines ratio between original stiffness and current stiffness"));
     storyPropertiesFrame->setLayout(storyPropertiesFrameLayout);
     storyPropertiesFrame->setLineWidth(1);
     storyPropertiesFrame->setFrameShape(QFrame::Box);
@@ -3073,7 +3115,7 @@ void MainWindow::createInputPanel() {
 
     spreadSheetFrame = new QFrame();
     QVBoxLayout *spreadsheetFrameLayout = new QVBoxLayout();
-    headings << tr("Weight") << tr("Heighht") << tr("K") << tr("Fy") << tr("b") << tr("zeta");
+    headings << tr("Weight") << tr("Height") << tr("K") << tr("Fy") << tr("b") << tr("zeta");
     dataTypes << SIMPLESPREADSHEET_QDouble;
     dataTypes << SIMPLESPREADSHEET_QDouble;
     dataTypes << SIMPLESPREADSHEET_QDouble;
@@ -3101,7 +3143,7 @@ void MainWindow::createInputPanel() {
     QFrame *pushButtons = new QFrame();
     pushButtons->setObjectName(QString::fromUtf8("pushButtons")); //styleSheet
     QHBoxLayout *pushButtonsLayout = new QHBoxLayout();
-    runButton = new QPushButton("Run");
+    runButton = new QPushButton("Play");
     pushButtonsLayout->addWidget(runButton);
     stopButton = new QPushButton("Stop");
     pushButtonsLayout->addWidget(stopButton);
@@ -3236,6 +3278,7 @@ void MainWindow::createOutputPanel() {
 
     QHBoxLayout *periodLayout = new QHBoxLayout();
     periodComboBox = new QComboBox();
+    periodComboBox->setToolTip(tr("Period of structure for different modes"));
     QString t1("FundamentalPeriod");
     periodComboBox->addItem(t1);
 
